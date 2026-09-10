@@ -1,0 +1,2037 @@
+--- before/scripts/inspect-assets.py
++++ after/scripts/inspect-assets.py
+@@ -0,0 +1,77 @@
++"""Read-only sprite audit; writes contact sheets and a local animation review."""
++import ast
++import hashlib
++import json
++from pathlib import Path
++from PIL import Image, ImageDraw, ImageFont
++
++ROOT = Path(__file__).resolve().parents[1]
++OUT = ROOT / 'qa'
++OUT.mkdir(exist_ok=True)
++source = ROOT / 'assets' / 'spritesheet.png'
++im = Image.open(source).convert('RGBA')
++fw, fh = im.width // 8, im.height // 11
++tree = ast.parse((ROOT/'scripts/shinchan_pet_qt.py').read_text(encoding='utf-8'))
++animations = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign)
++                  and any(isinstance(t, ast.Name) and t.id == 'ANIMATIONS' for t in n.targets))
++cells = []
++layout = json.loads((ROOT/'assets/spritesheet-layout.json').read_text(encoding='utf-8'))
++def rendered_frame(row, col):
++    spec = layout['rows'][row][col]
++    x,y,w,h = spec['source']; tx,ty,tw,th = spec['target']
++    cell = im.crop((x,y,x+w,y+h)).resize((tw,th),Image.Resampling.LANCZOS)
++    frame=Image.new('RGBA',(384,416))
++    frame.paste(cell,(tx,ty))
++    return frame
++for row in range(11):
++    for col in range(8):
++        cell = rendered_frame(row,col)
++        alpha = cell.getchannel('A')
++        box = alpha.getbbox()
++        cells.append({'row': row, 'col': col, 'bounds':box,
++                      'edge_contact':bool(box and (box[0] == 0 or box[1] == 0 or box[2] == fw or box[3] == fh)),
++                      'transparent_pixels':alpha.histogram()[0],
++                      'hash': hashlib.sha256(cell.tobytes()).hexdigest()})
++report = {'size':im.size, 'cell_size':[fw,fh], 'alpha_range':im.getchannel('A').getextrema(),
++          'empty_cells':[c for c in cells if not c['bounds']],
++          'edge_contact_cells':[{'row':c['row'],'col':c['col']} for c in cells if c['edge_contact']],
++          'unique_cells':len({c['hash'] for c in cells}), 'cells':cells,
++          'limits':'Pixel checks do not prove anatomical or directional correctness. See visual review.'}
++(OUT/'asset-audit.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
++font_path = Path('C:/Windows/Fonts/msyh.ttc')
++font = ImageFont.truetype(str(font_path), 18) if font_path.exists() else ImageFont.load_default()
++sheet = Image.new('RGB', (8*192, 11*238), '#f2f4f7')
++draw = ImageDraw.Draw(sheet)
++names = [*list(animations)[:9], 'look source', 'hero-celebrate']
++for row in range(11):
++    for col in range(8):
++        cell = rendered_frame(row,col).resize((192,208), Image.Resampling.LANCZOS)
++        x,y=col*192,row*238
++        draw.rectangle((x,y,x+191,y+237), fill=('#f2f4f7' if col%2 == 0 else '#253247'))
++        sheet.paste(cell,(x,y+27),cell)
++        draw.text((x+5,y+4),f'{names[row]} {col}',font=font,fill=('#17243b' if col%2 == 0 else '#ffffff'))
++sheet.save(OUT/'atlas-contact.png')
++cardinals = Image.new('RGB',(5*192,238),'#f2f4f7')
++for i,(label,col) in enumerate([('左 / Left',5),('左上 / Up-left',6),('正面 / Neutral',0),('右上 / Up-right',1),('右 / Right',2)]):
++    cell=rendered_frame(9,col).resize((192,208),Image.Resampling.LANCZOS)
++    cardinals.paste(cell,(i*192,28),cell)
++    ImageDraw.Draw(cardinals).text((i*192+4,4),label,font=font,fill='#17243b')
++cardinals.save(OUT/'look-review.png')
++html = '''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>小新动画检查</title>
++<style>body{font:16px system-ui;background:#eef2f7;color:#18233a;margin:36px}button{padding:9px 14px;border:1px solid #b7c4d8;border-radius:8px;margin:4px;cursor:pointer}.grid{display:flex;gap:28px;flex-wrap:wrap}.card{background:white;padding:24px;border-radius:18px;box-shadow:0 8px 25px #22335514}canvas{background:repeating-conic-gradient(#eee 0% 25%,white 0% 50%) 0/20px 20px}.dark{background:#253247}h1{font-size:26px}small{display:block;line-height:1.7;max-width:780px}</style>
++<h1>蜡笔小新 · 动画检查</h1><p>点击状态检查循环；左边为原播放，右边为修复后的播放。</p><div id="buttons"></div>
++<div class="grid"><div class="card"><h3>原播放</h3><canvas id="before" width="192" height="208"></canvas><p id="a"></p></div><div class="card"><h3>修复后</h3><canvas id="after" width="192" height="208"></canvas><p id="b"></p></div></div>
++<p><button onclick="paused=!paused">暂停 / 继续</button><button onclick="document.querySelectorAll('canvas').forEach(c=>c.classList.toggle('dark'))">深色 / 浅色</button></p>
++<small>现有素材没有可靠的正上方和正下方凝视帧，因此垂直跟随回到正面。图片保留原样；本次修改播放映射和节奏。动作中的装饰星星、烟雾属于现有美术。</small>
++<script>const layout=LAYOUT_DATA;const animations=ANIM_DATA;const original=ORIGINAL_DATA;const img=new Image();img.src='../assets/spritesheet.png';let state='idle',paused=false,ticks=[0,0],indexes=[0,0];
++const names={'idle':'待机','running-right':'向右跑','running-left':'向左跑','waving':'挥手','jumping':'跳跃','failed':'失败','waiting':'等待','running':'工作','review':'检查','hero-celebrate':'庆祝'};
++for(const s in animations){const b=document.createElement('button');b.textContent=names[s];b.onclick=()=>{state=s;ticks=[0,0];indexes=[0,0]};document.querySelector('#buttons').append(b)}
++function loop(now){if(img.complete&&!paused){[original,animations].forEach((map,i)=>{const an=map[state];const durations=an.durations;if(now-ticks[i]>=durations[indexes[i]]){indexes[i]=(indexes[i]+1)%durations.length;ticks[i]=now}const col=(an.columns||durations.map((_,j)=>j))[indexes[i]];const c=document.getElementById(i?'after':'before');const ctx=c.getContext('2d');ctx.clearRect(0,0,192,208);ctx.drawImage(img,col*384,an.row*416,384,416,0,0,192,208);document.getElementById(i?'b':'a').textContent=names[state]+' · 源帧 '+col})}requestAnimationFrame(loop)}requestAnimationFrame(loop);</script></html>'''
++import zipfile
++with zipfile.ZipFile(OUT/'original-scripts.zip') as z:
++    old = next(z.read(n).decode('utf-8-sig') for n in z.namelist() if n.endswith('shinchan_pet_qt.py'))
++old_tree=ast.parse(old)
++original=next(ast.literal_eval(n.value) for n in old_tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='ANIMATIONS' for t in n.targets))
++html=html.replace("ctx.drawImage(img,col*384,an.row*416,384,416,0,0,192,208)", "if(i){const f=layout.rows[an.row][col];ctx.drawImage(img,...f.source,...f.target.map(v=>v/2))}else{ctx.drawImage(img,col*384,an.row*416,384,416,0,0,192,208)}")
++(OUT/'animation-preview.html').write_text(html.replace('LAYOUT_DATA',json.dumps(layout)).replace('ANIM_DATA',json.dumps(animations)).replace('ORIGINAL_DATA',json.dumps(original)),encoding='utf-8')
++print(json.dumps({k:v for k,v in report.items() if k!='cells'},ensure_ascii=False))
+--- before/scripts/pet-check.py
++++ after/scripts/pet-check.py
+@@ -21,28 +21,14 @@
+ HERE = Path(__file__).resolve().parent
+ sys.path.insert(0, str(HERE))
+ import pet_config
++from pet_runtime import is_running
+ 
+ RUNTIME = Path(os.environ.get("LOCALAPPDATA", "")) / "CrayonShinchanPet"
+ PID_FILE = RUNTIME / "host.pid"
+ 
+ 
+ def pet_running() -> bool:
+-    """桌宠是否在运行（host.pid 有效）。"""
+-    if not PID_FILE.exists():
+-        return False
+-    try:
+-        pid = int(PID_FILE.read_text(encoding="utf-8").strip())
+-    except Exception:
+-        return False
+-    try:
+-        if os.name == "nt":
+-            r = subprocess.run(["tasklist", "/FI", f"PID eq {pid}"],
+-                               capture_output=True, timeout=20)
+-            return str(pid).encode() in r.stdout
+-        os.kill(pid, 0)
+-        return True
+-    except Exception:
+-        return False
++    return is_running()
+ 
+ 
+ def main() -> int:
+@@ -51,7 +37,7 @@
+     py = pet_config.python_executable()
+     pyside = pet_config.has_pyside6(py) if py else False
+ 
+-    if not configured or not py or not pyside:
++    if not py or not pyside:
+         print(f"[NEED_INSTALL] 技能未配置或依赖缺失（config={'有' if cfg else '无'} python={bool(py)} PySide6={pyside}）")
+         print("  请运行: pwsh -NoProfile -ExecutionPolicy Bypass -File <技能目录>\\scripts\\install-env.ps1")
+         print("  （无 pwsh 则用 powershell.exe 替代，兼容 PS 5.1）")
+@@ -66,4 +52,4 @@
+ 
+ 
+ if __name__ == "__main__":
+-    sys.exit(main())+    sys.exit(main())
+--- before/scripts/pet-log.py
++++ after/scripts/pet-log.py
+@@ -1,126 +1,53 @@
+ #!/usr/bin/env python3
+-"""蜡笔蜡笔小新气泡对比日志 — 直观对比"界面思维链原文"和"气泡实际显示的内容"。
+-
+-    python pet-log.py            # 对比最近 10 条思考
+-    python pet-log.py -n 20      # 最近 20 条
+-    python pet-log.py --watch    # 持续跟踪新思考（Ctrl+C 停止）
+-
+-两行对比：
+-  [思维链开头] 界面上这段思考从头读起的样子
+-  [气泡·头部取] 当前采用的策略（前 42 字 + …）
+-
+-数据源：teleagent.db 的 part 表（reasoning 块）。
+-本工具只在控制台打印，不写任何内容文件、不联网。
+-"""
+-
++"""Show the same safe event projection used by the pet; never print message bodies."""
++import argparse
++import json
+ import sys
+-import os
+ import time
+-import re
+-import sqlite3
+-import json
+-
+-# 禁止写入 .pyc 字节码缓存（技能目录需保持纯净，技能广场审核禁止 .pyc）
+ sys.dont_write_bytecode = True
+-
+-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+-from pet_events import _db_path, _fit_text
+-
+-WIDTH = 42
++from pet_events import TranscriptWatcher, STATE_LABEL, TOOL_LABEL, classify
+ 
+ 
+-def tail_text(s, n=WIDTH):
+-    s = re.sub(r"\s+", " ", str(s)).strip()
+-    if len(s) <= n:
+-        return s
+-    return "…" + s[-n:]
+-
+-
+-def short_ts(ms):
+-    t = time.localtime(ms / 1000)
+-    return time.strftime("%H:%M:%S", t)
+-
+-
+-def dump_block(ms, full):
+-    full_flat = re.sub(r"\s+", " ", full).strip()
+-    print(f"\n[{short_ts(ms)}] 一段思考（原文 {len(full_flat)} 字）")
+-    head = _fit_text(full, WIDTH)
+-    tail = tail_text(full, WIDTH)
+-    print(f"  思维链开头   : {full_flat[:WIDTH + 10]}{'…' if len(full_flat) > WIDTH + 10 else ''}")
+-    print(f"  气泡·头部取 ✓: {head}")
+-    print(f"  气泡·尾部取 ✗: {tail}")
+-
+-
+-def fetch_reasoning(db, since_ts=0, limit=50):
+-    """从 part 表拉 reasoning 块：(time_created, text)。"""
+-    out = []
+-    try:
+-        conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+-        conn.row_factory = sqlite3.Row
+-        cur = conn.cursor()
+-        rows = cur.execute(
+-            "SELECT time_created, data FROM part "
+-            "WHERE time_created > ? AND data LIKE '%\"type\":\"reasoning\"%' "
+-            "ORDER BY time_created ASC LIMIT ?",
+-            (since_ts, limit),
+-        ).fetchall()
+-        for r in rows:
+-            try:
+-                d = json.loads(r["data"])
+-            except Exception:
+-                continue
+-            if d.get("type") != "reasoning":
+-                continue
+-            text = d.get("text", "") or ""
+-            if text.strip():
+-                out.append((r["time_created"], text))
+-        conn.close()
+-    except Exception:
+-        pass
+-    return out
++def display(ev):
++    state = classify(ev.get('event'), ev)
++    label = TOOL_LABEL.get(ev.get('tool_name'), '') or STATE_LABEL.get(state, ev.get('event', ''))
++    stamp = time.strftime('%H:%M:%S', time.localtime(ev['ts']/1000))
++    print(f"[{stamp}] {ev['session_id'][:8]} | {label} | {ev.get('snippet', '')}")
+ 
+ 
+ def main():
+-    args = sys.argv[1:]
+-    watch = "--watch" in args or "-w" in args
+-    n = 10
+-    if "-n" in args:
+-        i = args.index("-n")
+-        try:
+-            n = int(args[i + 1])
+-        except Exception:
+-            pass
+-
+-    db = _db_path()
+-    if not os.path.exists(db):
+-        print(f"找不到事件库: {db}")
+-        return 1
+-
+-    print("蜡笔蜡笔小新气泡对比日志 — 气泡显示 vs 思维链原文（只处理思考块）")
+-    print("=" * 62)
+-    collected = fetch_reasoning(db, limit=400)
+-    if not collected:
+-        print("（最近没有思考块）")
++    parser = argparse.ArgumentParser(description='桌宠结构事件日志（不读取思考/消息/命令正文）')
++    parser.add_argument('-n', type=int, default=10)
++    parser.add_argument('--watch', action='store_true')
++    args = parser.parse_args()
++    watcher = TranscriptWatcher()
++    try:
++        watcher._ensure_conn()
++        if watcher._conn is None:
++            print('未找到可读取的 TeleAgent 数据库')
++            return 1
++        watcher._scan_titles()
++        rows = watcher._conn.execute(watcher._projection_sql() + ' ORDER BY p.rowid DESC LIMIT ?',
++                                     (max(1, min(args.n, 1000)),)).fetchall()
++        for row in reversed(rows):
++            if watcher._probe_sys_sid(row['session_id']):
++                continue
++            ev = watcher._part_to_event(json.loads(row['data']),row['time_created'],row['session_id'],row['role'])
++            if ev:
++                display(ev)
++        if args.watch:
++            watcher.poll()
++            while True:
++                for ev in watcher.poll():
++                    display(ev)
++                time.sleep(0.5)
+         return 0
+-    for ms, full in collected[-n:]:
+-        dump_block(ms, full)
+-
+-    if watch:
+-        print("\n--- 持续跟踪中，Ctrl+C 停止 ---")
+-        last_ts = collected[-1][0] if collected else 0
+-        try:
+-            while True:
+-                for ms, full in fetch_reasoning(db, since_ts=last_ts, limit=50):
+-                    if ms <= last_ts:
+-                        continue
+-                    last_ts = ms
+-                    dump_block(ms, full)
+-                time.sleep(2)
+-        except KeyboardInterrupt:
+-            pass
+-    print()
+-    return 0
++    except KeyboardInterrupt:
++        return 0
++    finally:
++        if watcher._conn:
++            watcher._conn.close()
+ 
+ 
+-if __name__ == "__main__":
+-    sys.exit(main())+if __name__ == '__main__':
++    sys.exit(main())
+--- before/scripts/pet-start.py
++++ after/scripts/pet-start.py
+@@ -25,8 +25,9 @@
+ HERE = Path(__file__).resolve().parent
+ sys.path.insert(0, str(HERE))
+ import pet_config
++from pet_runtime import runtime_root, is_running as instance_running
+ MAIN = HERE / "shinchan_pet_qt.py"
+-RUNTIME = Path(os.environ.get("LOCALAPPDATA", "")) / "CrayonShinchanPet"
++RUNTIME = runtime_root()
+ STATE = RUNTIME / "state.json"
+ PID_FILE = RUNTIME / "host.pid"
+ 
+@@ -38,6 +39,8 @@
+     exe = pet_config.python_executable()
+     if exe:
+         out.append(Path(exe))
++    out.append(Path(sys.executable))
++    out.append(HERE.parent / '.venv' / 'Scripts' / 'python.exe')
+     # 2) 本机 py 启动器 / PATH 里的 python
+     out.append(Path("py"))
+     out.append(Path("python"))
+@@ -57,7 +60,7 @@
+         return False
+ 
+ 
+-def pick_interpreter():
++def pick_interpreter(gui=True):
+     seen = set()
+     for c in candidates():
+         key = str(c).lower()
+@@ -70,31 +73,14 @@
+         if has_pyside6(exe):
+             # GUI 程序用 pythonw 启动，避免桌宠背后跟一个黑色控制台窗口
+             pw = c.with_name("pythonw.exe") if c.is_absolute() else None
+-            if pw is not None and pw.exists():
++            if gui and pw is not None and pw.exists():
+                 return str(pw)
+             return exe
+     return None
+ 
+ 
+ def is_running():
+-    if not PID_FILE.exists():
+-        return False
+-    try:
+-        pid = int(PID_FILE.read_text(encoding="utf-8").strip())
+-    except Exception:
+-        return False
+-    try:
+-        if os.name == "nt":
+-            # 中文 Windows 的 tasklist 输出是 GBK，按字节比对，绕开编码问题
+-            r = subprocess.run(
+-                ["tasklist", "/FI", f"PID eq {pid}"],
+-                capture_output=True, timeout=20,
+-            )
+-            return str(pid).encode() in r.stdout
+-        os.kill(pid, 0)
+-        return True
+-    except Exception:
+-        return False
++    return instance_running(RUNTIME)
+ 
+ 
+ def stop():
+@@ -120,29 +106,30 @@
+         print("桌宠已在运行，无需重复启动")
+         return 0
+ 
+-    exe = pick_interpreter()
++    foreground = "--foreground" in args
++    exe = pick_interpreter(gui=not foreground)
+     if not exe:
+         print("没找到装了 PySide6 的 Python。请先安装：")
+         print("  pip install PySide6")
+         return 1
+ 
+     print(f"使用解释器: {exe}")
+-    foreground = "--foreground" in args
+     try:
+         if foreground:
+-            return subprocess.call([exe, str(MAIN)])
++            return subprocess.call([exe, '-X', 'utf8', '-B', str(MAIN)])
+         if os.name == "nt":
+             # Windows：用 Start-Process 派生独立进程，避免进程随 agent 命令
+             # 结束被沙箱回收（subprocess.Popen 的子进程会挂在命令进程树上）。
+             ps = shutil.which("powershell.exe") or "powershell.exe"
+-            start = (f"Start-Process -FilePath '{exe}' "
+-                     f"-ArgumentList '-B','{MAIN}' -WindowStyle Hidden")
+-            subprocess.Popen(
+-                [ps, "-NoProfile", "-NonInteractive", "-Command", start],
+-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+-                stdin=subprocess.DEVNULL,
+-                creationflags=0x08000000,  # CREATE_NO_WINDOW
+-            )
++            # Start-Process joins ArgumentList: quote the script as one Windows argument.
++            quote = lambda s: "'" + s.replace("'", "''") + "'"
++            arguments = subprocess.list2cmdline(['-X', 'utf8', '-B', str(MAIN)])
++            start = f"Start-Process -FilePath {quote(exe)} -ArgumentList {quote(arguments)} -WindowStyle Hidden"
++            result = subprocess.run([ps, '-NoProfile', '-NonInteractive', '-Command', start],
++                                    capture_output=True, timeout=20, creationflags=0x08000000)
++            if result.returncode:
++                print('桌宠启动命令失败')
++                return 1
+         else:
+             subprocess.Popen(
+                 [exe, str(MAIN)],
+@@ -155,8 +142,8 @@
+             if is_running():
+                 print("桌宠已启动，等待任务文件驱动进度")
+                 return 0
+-        print("桌宠进程已拉起，但未能确认 PID 文件，请查看界面是否出现")
+-        return 0
++        print(f"桌宠未能确认启动，请检查 {RUNTIME / 'host-error.log'}")
++        return 1
+     except Exception as e:
+         print(f"启动失败: {e}")
+         return 1
+--- before/scripts/pet_events.py
++++ after/scripts/pet_events.py
+@@ -4,11 +4,11 @@
+ 把 TeleAgent 的 teleagent.db part 表增量数据投影成桌宠能懂的状态。
+ 
+ 数据源：teleagent.db 的 part 表，含 type（reasoning/tool/text/step-start/step-finish）
+-和 tool 名字、state.status（running/completed），按 time_created 增量读取。
++和 tool 名字、state.status，按 rowid 增量读取，并跟踪运行中工具的原行更新。
+ 
+ 设计原则：
+ 1. 隐私投影在第一线——只取结构字段（type、tool 名、session_id、时间戳），
+-   reasoning 正文只取开头摘录（气泡显示），其余一律不读、不存、不外传。
++   正文、命令、工具输出不投影；气泡仅使用工具描述、文件名和搜索关键词。
+ 2. 多会话并行时按紧急度仲裁：failed > waiting > working > review > thinking > done > idle。
+ 3. 没有会话结束事件，每个状态带 TTL，超时自动衰减回 idle。
+ """
+@@ -197,6 +197,7 @@
+         self._orphan_sid = "_orphan"
+         self.sys_sids = set()       # 系统内部会话 id（来自标题扫描，动态同步）
+         self.completed_sids = set() # 已结束会话 id（来自 session-status，动态同步）
++        self.active_sids = set()
+ 
+     def set_sys_sids(self, sids):
+         """同步系统内部会话集合；已在 sessions 里的系统会话由 sweep 立即清除。"""
+@@ -263,6 +264,10 @@
+ 
+         cur["state"] = st
+         cur["ts"] = now
++        if not tool:
++            cur["tool"] = ""
++            cur["label"] = ""
++            cur["snippet"] = ""
+         if event == "PreToolUse":
+             cur["count"] += 1
+         if tool:
+@@ -289,6 +294,8 @@
+                     changed = True
+                 continue
+             age = now - s["ts"]
++            if sid in self.active_sids and s["state"] in ("thinking", "working", "review", "waiting"):
++                continue
+             ttl = TTL.get(s["state"], 60)
+             if sid == self._orphan_sid:
+                 ttl = min(ttl, 90)
+@@ -337,17 +344,23 @@
+ 
+ 
+ def classify(event: str, ev: dict) -> Optional[str]:
++    if event == "ToolError":
++        return "failed"
++    if event == "Waiting":
++        return "waiting"
+     if event == "Stop":
+         return "waiting" if ev.get("ends_with_question") else "done"
+     if event == "PostToolUse":
+         return None
+     if event == "PreToolUse":
++        if ev.get("tool_status") == "error":
++            return "failed"
+         tool = ev.get("tool_name") or ""
+         return TOOL_CLASS.get(tool, "working")
+     if event == "Reasoning":
+         return "thinking"
+     if event == "AssistantMessage":
+-        return "done"
++        return "thinking"  # 流式文本/中途说明不是本轮完成信号
+     if event == "UserPromptSubmit":
+         return "thinking"
+     return None
+@@ -441,6 +454,10 @@
+ 
+ def _status_path() -> Path:
+     """定位 session-status.json（动态推导，兜底新版根目录）。"""
++    if os.environ.get("TELEAGENT_DB"):
++        parent = Path(os.environ["TELEAGENT_DB"]).parent
++        nested = parent / "state" / "session-status.json"
++        return nested if nested.exists() else parent / "session-status.json"
+     _db, st = _resolve_teleagent_paths()
+     if st is not None:
+         return st
+@@ -475,6 +492,9 @@
+         self.db_path = _db_path()
+         self.status_path = _status_path()
+         self._last_ts = 0          # 已读到的最大 time_created
++        self._last_rowid = 0
++        self._pending_tools = {}
++        self._status_snapshot = {}
+         self._initialized = False
+         self.titles = {}
+         self._last_title_scan = 0.0
+@@ -501,7 +521,7 @@
+             self._conn = None
+         try:
+             self._conn = sqlite3.connect(
+-                f"file:{self.db_path}?mode=ro", uri=True,
++                self.db_path.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.1,
+                 check_same_thread=False,
+             )
+             self._conn.row_factory = sqlite3.Row
+@@ -521,12 +541,11 @@
+             if self._conn is None:
+                 return
+             cur = self._conn.cursor()
+-            cur.execute("SELECT MAX(time_created) FROM part")
++            cur.execute("SELECT COALESCE(MAX(rowid), 0), COALESCE(MAX(time_created), 0) FROM part")
+             row = cur.fetchone()
+-            if row and row[0]:
+-                self._last_ts = row[0]
++            self._last_rowid, self._last_ts = row
+         except Exception:
+-            pass
++            return
+         self._initialized = True
+ 
+     def _active_sessions(self):
+@@ -592,7 +611,7 @@
+         """增量读取 part 表新行，返回投影后的事件列表。"""
+         if not self._initialized:
+             self._init_baseline()
+-            return []
++            return self._status_events() if self._initialized else []
+ 
+         self._scan_titles()  # 确保 _sys_sids 已构建（内部 30 秒缓存）
+         events = []
+@@ -602,26 +621,25 @@
+                 return []
+ 
+             cur = self._conn.cursor()
+-            # 增量查询：time_created > self._last_ts
++            # rowid 游标保留同一毫秒提交的全部记录，也不受分页边界影响。
++            # SQL 第一层只投影允许显示的字段，不读取消息/思考/命令/输出正文。
+             cur.execute(
+-                "SELECT session_id, time_created, data FROM part "
+-                "WHERE time_created > ? ORDER BY time_created ASC LIMIT 500",
+-                (self._last_ts,),
++                self._projection_sql() + " WHERE p.rowid > ? ORDER BY p.rowid ASC LIMIT 500",
++                (self._last_rowid,),
+             )
+             rows = cur.fetchall()
+-            if not rows:
+-                return []
+-
++            pending_before = dict(self._pending_tools)
+             for r in rows:
+                 ts = r["time_created"]
+-                if ts > self._last_ts:
+-                    self._last_ts = ts
++                self._last_ts = max(ts, self._last_ts)
++                self._last_rowid = r["row_id"]
+                 try:
+                     data = json.loads(r["data"]) if r["data"] else {}
+                 except Exception:
+                     continue
+ 
+-                ptype = data.get("type", "")
++                if not isinstance(data, dict):
++                    continue
+                 # 用 part 表自己的 session_id，不再猜测
+                 sid = r["session_id"]
+                 # 跳过系统内部会话（[skill-evolution] internal、_SYS_* 等）
+@@ -633,14 +651,76 @@
+                     if self._probe_sys_sid(sid):
+                         self._sys_sids.add(sid)
+                         continue
+-                ev = self._part_to_event(data, ts, sid)
++                ev = self._part_to_event(data, ts, sid, r["role"])
+                 if ev:
+                     events.append(ev)
++                if data.get("type") == "tool" and data.get("state", {}).get("status") in ("pending", "running"):
++                    self._pending_tools[r["row_id"]] = data
++            # TeleAgent 把完成/失败状态更新在原 part 行，不能只看新增行。
++            for row_id, previous in pending_before.items():
++                row = self._conn.execute(self._projection_sql() + " WHERE p.rowid=?", (row_id,)).fetchone()
++                if row is None:
++                    self._pending_tools.pop(row_id, None)
++                    continue
++                data = json.loads(row["data"])
++                status = data.get("state", {}).get("status")
++                if status in ("completed", "error"):
++                    ev = self._part_to_event(data, row["time_updated"], row["session_id"], row["role"])
++                    if ev:
++                        ev["event"] = "ToolError" if status == "error" else "PostToolUse"
++                        events.append(ev)
++                    self._pending_tools.pop(row_id, None)
+         except Exception:
+             pass
++        active_event_sids = {ev["session_id"] for ev in events}
++        events.extend(ev for ev in self._status_events()
++                      if ev["event"] != "Reasoning" or ev["session_id"] not in active_event_sids)
+         return events
+ 
+-    def _part_to_event(self, data: dict, ts: int, sid: str) -> Optional[dict]:
++    @staticmethod
++    def _projection_sql():
++        return """SELECT p.rowid AS row_id, p.session_id, p.time_created, p.time_updated,
++            json_extract(m.data, '$.role') AS role,
++            json_object('type', json_extract(p.data, '$.type'),
++                'tool', json_extract(p.data, '$.tool'), 'reason', json_extract(p.data, '$.reason'),
++                'state', json_object('status', json_extract(p.data, '$.state.status'),
++                    'input', json_object(
++                        'description', json_extract(p.data, '$.state.input.description'),
++                        'filePath', json_extract(p.data, '$.state.input.filePath'),
++                        'path', json_extract(p.data, '$.state.input.path'),
++                        'file_path', json_extract(p.data, '$.state.input.file_path'),
++                        'pattern', json_extract(p.data, '$.state.input.pattern'),
++                        'query', json_extract(p.data, '$.state.input.query'),
++                        'keywords', json_extract(p.data, '$.state.input.keywords'),
++                        'include', json_extract(p.data, '$.state.input.include'),
++                        'name', json_extract(p.data, '$.state.input.name')))) AS data
++            FROM part p LEFT JOIN message m ON m.id=p.message_id"""
++
++    def _status_events(self):
++        try:
++            data = json.loads(self.status_path.read_text(encoding="utf-8-sig"))
++            if not isinstance(data, dict):
++                return []
++        except (OSError, ValueError):
++            return []
++        result = []
++        for sid, status in data.items():
++            old = self._status_snapshot.get(sid)
++            if status == old or sid in self._sys_sids:
++                continue
++            event = None
++            if status == "running" and old != "running":
++                event = "Reasoning"
++            elif status in ("paused", "needs_intervention") and old is not None:
++                event = "Waiting"
++            elif status == "completed" and old in ("running", "paused", "needs_intervention"):
++                event = "Stop"
++            if event and not self._probe_sys_sid(sid):
++                result.append({"event": event, "session_id": sid, "ts": int(time.time()*1000)})
++        self._status_snapshot = data
++        return result
++
++    def _part_to_event(self, data: dict, ts: int, sid: str, role=None) -> Optional[dict]:
+         """把一条 part 行投影成结构事件。"""
+         ptype = data.get("type", "")
+ 
+@@ -663,6 +743,7 @@
+             inp = state.get("input", {}) if isinstance(state, dict) else {}
+             meta = state.get("metadata", {}) if isinstance(state, dict) else {}
+             ev["tool_name"] = tool_name
++            ev["tool_status"] = status
+ 
+             # 所有 tool 类型都视为"工作中"
+             ev["event"] = "PreToolUse"
+@@ -671,15 +752,9 @@
+             ev["snippet"] = _extract_tool_summary(tool_name, inp, meta)
+ 
+         elif ptype == "text":
+-            text = data.get("text", "")
+-            # 区分用户消息和助手消息：用户消息通常没有 time 字段里的 start/end
+-            time_info = data.get("time", {})
+-            if isinstance(time_info, dict) and time_info.get("start") and time_info.get("end"):
+-                # 助手消息有 time.start/end
+-                ev["event"] = "AssistantMessage"
+-                ev["ends_with_question"] = _ends_with_question(text)
+-            else:
+-                ev["event"] = "UserPromptSubmit"
++            if role not in ("assistant", "user"):
++                return None
++            ev["event"] = "AssistantMessage" if role == "assistant" else "UserPromptSubmit"
+ 
+         elif ptype == "step-finish":
+             reason = data.get("reason", "")
+--- before/scripts/pet_runtime.py
++++ after/scripts/pet_runtime.py
+@@ -0,0 +1,49 @@
++"""Shared instance lock. An OS lock is released even if Qt crashes."""
++import os
++from pathlib import Path
++
++
++def runtime_root():
++    return Path(os.environ.get('PET_RUNTIME_DIR') or
++                Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'CrayonShinchanPet')
++
++
++class InstanceLock:
++    def __init__(self, root=None):
++        self.path = (root or runtime_root()) / 'host.lock'
++        self.file = None
++
++    def acquire(self):
++        self.path.parent.mkdir(parents=True, exist_ok=True)
++        f = open(self.path, 'a+b')
++        try:
++            if self.path.stat().st_size == 0:
++                f.write(b'0')
++                f.flush()
++            f.seek(0)
++            if os.name == 'nt':
++                import msvcrt
++                msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
++            else:
++                import fcntl
++                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
++        except OSError:
++            f.close()
++            return False
++        self.file = f
++        return True
++
++    def release(self):
++        if self.file:
++            self.file.close()
++            self.file = None
++
++
++def is_running(root=None):
++    lock = InstanceLock(root)
++    if not lock.path.exists():
++        return False
++    if not lock.acquire():
++        return True
++    lock.release()
++    return False
+--- before/scripts/shinchan-pet.ps1
++++ after/scripts/shinchan-pet.ps1
+@@ -21,10 +21,10 @@
+ 
+ $ErrorActionPreference = 'Stop'
+ 
+-$runtimeRoot = Join-Path $env:LOCALAPPDATA 'CrayonShinchanPet'
++$runtimeRoot = if ($env:PET_RUNTIME_DIR) { $env:PET_RUNTIME_DIR } else { Join-Path $env:LOCALAPPDATA 'CrayonShinchanPet' }
+ $statePath = Join-Path $runtimeRoot 'state.json'
+ $pidPath = Join-Path $runtimeRoot 'host.pid'
+-$petStartScript = Join-Path $PSScriptRoot 'pet-start.py'
++$petStartScript = Join-Path $PSScriptRoot 'start-pet.ps1'
+ $windowsPowerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+ 
+ function Ensure-RuntimeRoot {
+@@ -156,12 +156,9 @@
+     }
+     # 复用 pet-start.py 的启动逻辑（探测解释器 / pythonw / 单实例），
+     # 保证与 install-env.ps1、start-pet.ps1 完全一致，不依赖旧 legacy-host.ps1。
+-    $arguments = @(
+-        '-NoProfile',
+-        '-ExecutionPolicy', 'Bypass',
+-        '-File', "`"$petStartScript`""
+-    )
+-    Start-Process -FilePath $windowsPowerShell -ArgumentList $arguments -WindowStyle Hidden | Out-Null
++    # 等统一启动器返回，避免控制器宣告成功时仍残留启动器进程占用工作目录。
++    & $windowsPowerShell -NoProfile -ExecutionPolicy Bypass -File $petStartScript | Out-Null
++    if ($LASTEXITCODE -ne 0) { throw '桌宠启动器执行失败。' }
+     $deadline = [DateTime]::UtcNow.AddSeconds(15)
+     do {
+         Start-Sleep -Milliseconds 100
+--- before/scripts/shinchan_pet_qt.py
++++ after/scripts/shinchan_pet_qt.py
+@@ -19,7 +19,7 @@
+ )
+ from PySide6.QtCore import (
+     Qt, QTimer, QRect, QRectF, QPoint, QByteArray, QPropertyAnimation,
+-    QEasingCurve, QSize, QPropertyAnimation, Signal, QFileSystemWatcher
++    QEasingCurve, QSize, QPropertyAnimation, Signal, QFileSystemWatcher, QAbstractNativeEventFilter
+ )
+ from PySide6.QtGui import (
+     QPixmap, QPainter, QImage, QColor, QFont, QCursor, QAction,
+@@ -28,6 +28,7 @@
+ # 事件接入层（TeleAgent 会话事件 → 桌宠状态机）
+ sys.path.insert(0, str(Path(__file__).resolve().parent))
+ from pet_config import tasks_dir as _pet_tasks_dir, progress_file as _pet_progress_file
++from pet_runtime import InstanceLock
+ from pet_events import (
+     SessionTracker, TranscriptWatcher, STATE_ANIM, STATE_LABEL, TOOL_LABEL as TOOL_LABEL_PET
+ )
+@@ -38,10 +39,14 @@
+ SKILL_DIR = Path(__file__).resolve().parent.parent
+ ATLAS_PATH = SKILL_DIR / "assets" / "spritesheet.png"
+ ICON_PATH = SKILL_DIR / "assets" / "avatar.png"
++LAYOUT_PATH = SKILL_DIR / "assets" / "spritesheet-layout.json"
++_ATLAS_LAYOUTS = {}
+ RUNTIME_ROOT = Path(os.environ.get("LOCALAPPDATA", "")) / "CrayonShinchanPet"
++RUNTIME_ROOT = Path(os.environ.get("PET_RUNTIME_DIR", str(RUNTIME_ROOT)))
+ STATE_PATH = RUNTIME_ROOT / "state.json"
+ PID_PATH = RUNTIME_ROOT / "host.pid"
+ LOG_PATH = RUNTIME_ROOT / "host-error.log"
++POSITION_PATH = RUNTIME_ROOT / "position.json"
+ # 任务/进度文件路径：由 pet_config 统一解析（config.json > 环境变量 > 本机约定 > 技能内兜底）
+ PROGRESS_PATH = _pet_progress_file()
+ TASKS_DIR = _pet_tasks_dir()
+@@ -58,16 +63,16 @@
+ ANIMATIONS = {
+     # 8 张高清关键帧 + 更高刷新频率。移动/工作态约 14–16 FPS，
+     # 比旧版 6–8 FPS 明显顺滑，同时保留关键帧的清晰轮廓，不做重影插帧。
+-    "idle":           {"row": 0, "durations": [110, 72, 72, 78, 78, 72, 72, 170]},
++    "idle":           {"row": 0, "durations": [850, 160, 170, 180, 110, 160, 200, 1000]},
+     "running-right":  {"row": 1, "durations": [64, 64, 64, 64, 64, 64, 64, 82]},
+     "running-left":   {"row": 2, "durations": [64, 64, 64, 64, 64, 64, 64, 82]},
+-    "waving":         {"row": 3, "durations": [66, 66, 66, 66, 66, 66, 66, 104]},
+-    "jumping":        {"row": 4, "durations": [60, 60, 62, 62, 64, 64, 66, 106]},
+-    "failed":         {"row": 5, "durations": [82, 82, 84, 84, 86, 86, 88, 145]},
+-    "waiting":        {"row": 6, "durations": [92, 92, 94, 94, 96, 96, 98, 155]},
+-    "running":        {"row": 7, "durations": [64, 64, 64, 64, 64, 64, 64, 84]},
+-    "review":         {"row": 8, "durations": [76, 76, 78, 78, 80, 80, 82, 118]},
+-    "hero-celebrate": {"row": 10, "durations": [66, 66, 66, 66, 68, 68, 70, 125]},
++    "waving":         {"row": 3, "columns": [0, 1, 3, 6, 1, 7], "durations": [150, 160, 160, 160, 160, 250]},
++    "jumping":        {"row": 4, "columns": [0, 1, 2, 3, 4, 2, 1, 7], "durations": [180, 100, 100, 100, 130, 100, 100, 240]},
++    "failed":         {"row": 5, "columns": [0, 1, 4, 1], "durations": [650, 400, 550, 400]},
++    "waiting":        {"row": 6, "columns": [0, 1, 3, 1], "durations": [500, 350, 350, 500]},
++    "running":        {"row": 7, "columns": [0, 1, 2, 3, 4, 5, 6], "durations": [100, 100, 100, 100, 100, 100, 150]},
++    "review":         {"row": 8, "columns": [0, 4, 6, 7, 6, 4], "durations": [400, 280, 300, 180, 300, 280]},
++    "hero-celebrate": {"row": 10, "columns": [0, 1, 2, 1, 0], "durations": [220, 180, 180, 180, 450]},
+ }
+ 
+ STATE_MESSAGES = {
+@@ -129,16 +134,47 @@
+     if not ATLAS_PATH.exists():
+         raise FileNotFoundError(f"找不到小新超人精灵图：{ATLAS_PATH}")
+     pixmap = QPixmap(str(ATLAS_PATH))
+-    if pixmap.width() % ATLAS_COLS or pixmap.height() % ATLAS_ROWS:
++    if pixmap.isNull() or (pixmap.width(), pixmap.height()) not in ((1536, 2288), (3072, 4576)):
+         raise ValueError(f"精灵图尺寸错误：{pixmap.width()}x{pixmap.height()}")
++    if LAYOUT_PATH.exists():
++        import hashlib
++        layout = json.loads(LAYOUT_PATH.read_text(encoding="utf-8"))
++        if layout["source_size"] == [pixmap.width(), pixmap.height()]:
++            if layout["source_sha256"] != hashlib.sha256(ATLAS_PATH.read_bytes()).hexdigest():
++                raise ValueError("精灵图已更换，请重新校验 spritesheet-layout.json 的取帧区域")
++            _ATLAS_LAYOUTS[pixmap.cacheKey()] = layout
+     return pixmap
+ 
+ 
+ def crop_frame(atlas: QPixmap, row: int, col: int) -> QPixmap:
+     """从精灵图中裁剪一帧（帧尺寸 = 图源宽高 / 8x11，自动适配高清版）"""
++    if not (0 <= row < ATLAS_ROWS and 0 <= col < ATLAS_COLS):
++        raise ValueError(f"非法精灵帧: {row}, {col}")
++    layout = _ATLAS_LAYOUTS.get(atlas.cacheKey())
++    if layout:
++        frame = QPixmap(*layout["frame_size"])
++        frame.fill(Qt.GlobalColor.transparent)
++        cell = layout["rows"][row][col]
++        painter = QPainter(frame)
++        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
++        painter.drawPixmap(QRect(*cell["target"]), atlas, QRect(*cell["source"]))
++        painter.end()
++        return frame
+     fw = atlas.width() // ATLAS_COLS
+     fh = atlas.height() // ATLAS_ROWS
+     return atlas.copy(col * fw, row * fh, fw, fh)
++
++
++def look_column(dx, dy):
++    """现有底稿是转身图：仅使用可靠的左右姿势，垂直方向回正面。
++
++    row 9 的 3/7 是背影，不能冒充俯视/仰视帧。
++    """
++    if abs(dx) < 12 or abs(dy) > abs(dx) * 1.8:
++        return 0
++    if dx > 0:
++        return 1 if dy < -abs(dx) * 0.5 else 2
++    return 6 if dy < -abs(dx) * 0.5 else 5
+ 
+ 
+ # ============================================================
+@@ -278,7 +314,8 @@
+         self.card.setGraphicsEffect(shadow)
+ 
+         cl = QVBoxLayout(self.card)
+-        cl.setContentsMargins(18, 13, 18, 14)
++        self._card_layout = cl
++        cl.setContentsMargins(18, 13, 18, 27)
+         cl.setSpacing(7)
+ 
+         # 头行：状态圆点 + 状态词 + 步数胶囊
+@@ -318,6 +355,8 @@
+         cl.addWidget(self.label)
+ 
+         outer.addWidget(self.card)
++        for label in (self.label, self.snippet_label, self.status_label, self.step_pill):
++            label.setTextFormat(Qt.TextFormat.PlainText)
+         self.setFixedSize(self.CARD_W + self.M_L + self.M_R, 112)
+ 
+     # ---- 模式 ----
+@@ -327,22 +366,18 @@
+             wgt.setVisible(structured)
+         self.snippet_label.setVisible(structured and bool(self._snippet_full))
+         self.label.setVisible((not structured) and bool(self._msg))
++        if not structured:
++            self.step_pill.hide()
+ 
+     # ---- 尺寸 ----
+     def _label_height(self, label: QLabel, text: str, width: int) -> int:
+-        try:
+-            hw = label.heightForWidth(width)
+-            if isinstance(hw, int) and hw > 0:
+-                return hw
+-        except Exception:
+-            pass
+         fm = label.fontMetrics()
+-        return fm.boundingRect(QRect(0, 0, width, 0), Qt.TextFlag.TextWordWrap, text).height()
++        return max(fm.height(), fm.boundingRect(QRect(0, 0, width, 10000), Qt.TextFlag.TextWordWrap, text).height()) + 2
+ 
+     def _apply_size(self, content_h: int):
+         w = self.CARD_W + self.M_L + self.M_R
+         h = content_h + self.M_T + self.M_B
+-        screen = QApplication.primaryScreen()
++        screen = QApplication.screenAt(self.pet.geometry().center()) or self.pet.screen()
+         if screen:
+             max_h = int(screen.availableGeometry().height() * 0.55)
+             h = min(h, max_h)
+@@ -362,10 +397,10 @@
+         self._set_mode(False)
+         self.card.set_accent(accent)
+         src = height_hint if height_hint is not None else msg
+-        body = self._label_height(self.label, src, self.CARD_W - 28) if msg else 18
++        body = self._label_height(self.label, src, self.CARD_W - 36) if msg else 18
+         self.label.setText(msg)
+         # 21 = 卡片上下边距（10 + 11）
+-        self._apply_size(body + 21)
++        self._apply_size(body + 40)
+ 
+     def set_structured(self, status: str, color: str, step_text: str, shown: str, full: str):
+         """structured 模式：状态行 + 摘录行。
+@@ -402,10 +437,10 @@
+             self.snippet_label.clear()
+             self.snippet_label.setVisible(False)
+         # 头行高 + 间距(5) + 摘录高 + 卡片上下边距(21)
+-        head_h = max(18, self.status_label.fontMetrics().height() + 2)
++        head_h = max(26, self.status_label.fontMetrics().height() + 6)
+         body = self._label_height(self.snippet_label, self._snippet_full,
+-                                  self.CARD_W - 28 - 9) if self._snippet_full else 0
+-        self._apply_size(head_h + 5 + body + 21)
++                                  self.CARD_W - 36 - 12) if self._snippet_full else 0
++        self._apply_size(head_h + (7 if body else 0) + body + 40)
+ 
+     def position_near_pet(self):
+         """定位在桌宠上方，尾巴顶点对准桌宠中心"""
+@@ -413,10 +448,12 @@
+         x = pet_geo.center().x() - self.width() // 2
+         y = pet_geo.top() - self.height() - 8
+         # 确保不超出屏幕
+-        screen = QApplication.primaryScreen().availableGeometry()
++        screen = (QApplication.screenAt(pet_geo.center()) or self.pet.screen()).availableGeometry()
+         self.card.tail_up = y < screen.top() + 4
++        self._card_layout.setContentsMargins(18, 26 if self.card.tail_up else 13, 18, 14 if self.card.tail_up else 27)
+         if self.card.tail_up:
+             y = pet_geo.bottom() + 8
++        y = max(screen.top() + 4, min(y, screen.bottom() - self.height() - 4))
+         x = max(screen.left() + 4, min(x, screen.right() - self.width() - 4))
+         self.move(x, y)
+         self.card.tail_x = pet_geo.center().x() - x - self.M_L
+@@ -455,8 +492,9 @@
+         outer.setContentsMargins(self.M_L, self.M_T, self.M_R, self.M_B)
+ 
+         self.frame = QFrame()
++        self.frame.setObjectName("task-card")
+         self.frame.setStyleSheet("""
+-            QFrame {
++            QFrame#task-card {
+                 background: rgba(239, 248, 255, 252);
+                 border: 2px solid rgba(22, 135, 255, 0.70);
+                 border-radius: 17px;
+@@ -493,7 +531,7 @@
+         self.status_label.setVisible(False)
+         header.addWidget(self.status_label, 0, Qt.AlignmentFlag.AlignVCenter)
+ 
+-        self.arrow_label = QLabel("▸")
++        self.arrow_label = QLabel("+")
+         self.arrow_label.setFont(QFont("Microsoft YaHei UI", 9))
+         self.arrow_label.setStyleSheet("color:#9ca3af;background:transparent;")
+         header.addWidget(self.arrow_label, 0, Qt.AlignmentFlag.AlignVCenter)
+@@ -517,6 +555,8 @@
+         fl.addWidget(self.detail_widget)
+ 
+         outer.addWidget(self.frame)
++        for label in (self.name_label, self.msg_label, self.status_label):
++            label.setTextFormat(Qt.TextFormat.PlainText)
+         self.setFixedSize(self.BUBBLE_W + self.M_L + self.M_R, 42)
+ 
+     def mousePressEvent(self, event):
+@@ -524,10 +564,10 @@
+             self._expanded = not self._expanded
+             if self._expanded:
+                 self.detail_widget.show()
+-                self.arrow_label.setText("▾")
++                self.arrow_label.setText("−")
+             else:
+                 self.detail_widget.hide()
+-                self.arrow_label.setText("▸")
++                self.arrow_label.setText("+")
+             self._resize_for_state()
+             # 通知主窗口重新布局
+             if self.window().__class__.__name__ == "PetWindow":
+@@ -559,7 +599,8 @@
+         self._current = current
+         self._total = total
+ 
+-        self.name_label.setText(name)
++        self.name_label.setText(self.name_label.fontMetrics().elidedText(name, Qt.TextElideMode.ElideRight, 140))
++        self.name_label.setToolTip(name)
+         self.msg_label.setText(message)
+ 
+         # 胶囊内容：有进度显示 2/5，否则显示状态词
+@@ -587,8 +628,8 @@
+         c = STATE_UI_COLORS.get(status, STATE_UI_COLORS["running"])
+         self.dot.setStyleSheet(f"background:{c};border-radius:4px;")
+         self.frame.setStyleSheet(f"""
+-            QFrame {{
+-                background: {_hex_rgba(c, 24)};
++            QFrame#task-card {{
++                background: rgba(248, 250, 253, 248);
+                 border: 2px solid {_hex_rgba(c, 180)};
+                 border-radius: 17px;
+             }}
+@@ -621,6 +662,9 @@
+         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+ 
+         # 默认位置（右下角）
++        self.setWindowTitle("蜡笔小新桌宠")
++        self.setWindowIcon(QIcon(str(ICON_PATH)))
++        self._pet_visible = True
+         screen = QApplication.primaryScreen().availableGeometry()
+         dw = int(FRAME_W * DISPLAY_SCALE)
+         dh = int(FRAME_H * DISPLAY_SCALE)
+@@ -661,6 +705,10 @@
+         self._auto_state = None      # 自动气泡当前状态（取主题色用）
+         self._auto_steps = 0         # 自动气泡步数（胶囊显示用）
+         self._progress_active = False  # 进度文件驱动是否处于激活态
++        self._state_tasks = []
++        self._file_tasks = []
++        self._progress_signature = None
++        self._auto_render_signature = None
+         self._bubble_owner = None    # 当前气泡归属：None/manual/auto
+         self._tw_pos = 0
+         self._poll_events = 0         # 1 分钟窗口内处理的事件数（活性自检）
+@@ -720,6 +768,43 @@
+         self._init_context_menu()
+ 
+         self._set_state("idle")
++        self._restore_position()
++
++    def _restore_position(self):
++        try:
++            obj = json.loads(POSITION_PATH.read_text(encoding="utf-8"))
++            target = QRect(int(obj["x"]), int(obj["y"]), self.width(), self.height())
++            if any(s.availableGeometry().contains(target) for s in QApplication.screens()):
++                self.move(target.topLeft())
++        except (OSError, ValueError, KeyError, TypeError):
++            pass
++
++    def _save_position(self):
++        try:
++            POSITION_PATH.parent.mkdir(parents=True, exist_ok=True)
++            POSITION_PATH.write_text(json.dumps({"x": self.x(), "y": self.y()}), encoding="utf-8")
++        except OSError as e:
++            log(f"save position: {e}")
++
++    def _reset_position(self):
++        screen = (QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()).availableGeometry()
++        self.move(screen.right() - self.width() - 28, screen.bottom() - self.height() - 28)
++        self._save_position()
++        if self._bubble:
++            self._bubble.position_near_pet()
++        self._layout_task_bubbles()
++
++    def _set_visible(self, visible):
++        self._pet_visible = bool(visible)
++        self.setVisible(self._pet_visible)
++        if self._bubble:
++            self._bubble.setVisible(self._pet_visible and bool(self._bubble_text))
++        self._layout_task_bubbles()
++
++    def _manual_state(self, state):
++        self._manual_until = time.time() + MANUAL_GRACE_SEC
++        self._auto_active = False
++        self._set_state(state)
+ 
+     def _init_label(self):
+         """初始化显示标签"""
+@@ -763,6 +848,7 @@
+         self._tracker.set_sys_sids(self._watcher_tp._sys_sids)
+         # 同步已结束会话集合：completed 会话延迟 20 秒清除气泡，避免"任务结束还挂着"
+         self._tracker.set_completed_sids(self._watcher_tp.completed_sids())
++        self._tracker.active_sids = self._watcher_tp._active_sessions() or set()
+         self._poll_events += len(events)
+         # 活性自检：每 60 秒写一条心跳日志。桌宠若整体冻结（事件循环卡死），
+         # 这条日志会停更——留下冻结的时间点和当时的状态快照，可定位。
+@@ -792,7 +878,6 @@
+             return
+         state, _info = self._tracker.resolve()
+         if state == "done":
+-            self._auto_state = "idle"      # 允许下次完成再次庆祝
+             self._set_state("hero-celebrate", one_shot=True, next_state="idle")
+ 
+     def _apply_auto_state(self, force: bool = False):
+@@ -807,16 +892,15 @@
+         # 手动控制优先
+         if time.time() < self._manual_until:
+             return
++        if self._progress_active or self._state_tasks or self._file_tasks:
++            return
+         # 手动/进度任务驱动的气泡在显示时，事件状态只做兜底
+         if self._task_bubbles and self._bubble_owner == "manual":
+             return
+ 
+         # 活性守卫：只要有 running 会话在（session-status.json），
+         # 即使 DB 暂时无新 part（长工具/长输出），也保持现状，不清气泡。
+-        if (not force
+-                and self._auto_state in ("thinking", "working", "review")
+-                and self._watcher_tp.has_active_session()):
+-            return
++        # 活性按会话维护；不能因另一个 running 会话而保留已结束的气泡。
+ 
+         # 事件驱动接管：抑制 _set_state 的默认状态文案，气泡统一由这里出
+         self._auto_active = True
+@@ -828,7 +912,7 @@
+         if state == self._auto_state:
+             self._update_auto_bubble(state, info)
+             anim = STATE_ANIM.get(state, "idle")
+-            if anim != self._state and not self._one_shot:
++            if anim != self._state and not self._one_shot and not (state == "idle" and self._state == "look"):
+                 self._set_state(anim)
+             return
+ 
+@@ -846,7 +930,7 @@
+             self._done_timer.stop()
+             anim = STATE_ANIM.get(state, "idle")
+ 
+-        if anim != self._state and not self._one_shot:
++        if anim != self._state and not self._one_shot and not (state == "idle" and self._state == "look"):
+             self._set_state(anim)
+ 
+     def _update_auto_bubble(self, state: str, info: dict):
+@@ -939,12 +1023,12 @@
+                          ("waiting", "等待中"), ("waving", "挥手"), ("jumping", "跳跃"),
+                          ("hero-celebrate", "英雄庆祝")]:
+             act = menu.addAction(label)
+-            act.triggered.connect(lambda checked, st=s: self._set_state(st))
++            act.triggered.connect(lambda checked, st=s: self._manual_state(st))
+ 
+         menu.addSeparator()
+ 
+         act_hide = menu.addAction("隐藏")
+-        act_hide.triggered.connect(self.hide)
++        act_hide.triggered.connect(lambda: self._set_visible(False))
+         act_exit = menu.addAction("退出")
+         act_exit.triggered.connect(self._quit)
+         menu.exec(event.globalPos())
+@@ -969,13 +1053,14 @@
+     def mouseReleaseEvent(self, event):
+         if event.button() == Qt.MouseButton.LeftButton:
+             self._dragging = False
++            self._save_position()
+ 
+     def mouseDoubleClickEvent(self, event):
+         if event.button() == Qt.MouseButton.LeftButton:
+             self._set_state("waving", one_shot=True, next_state=self._state if self._state != "waving" else "idle")
+ 
+     def enterEvent(self, event):
+-        if self._state != "look":
++        if self._state == "idle" and not self._one_shot:
+             self._saved_state = self._state
+             self._set_state("look")
+ 
+@@ -1019,7 +1104,7 @@
+     def _set_anim_duration(self):
+         """根据当前帧设置下一帧时间"""
+         if self._state == "look":
+-            self._anim_timer.start(33)
++            self._anim_timer.stop()
+             return
+         anim_key = "waiting" if self._state == "thinking" else self._state
+         anim = ANIMATIONS.get(anim_key)
+@@ -1040,7 +1125,7 @@
+             return
+         row = anim["row"]
+         durations = anim["durations"]
+-        col = self._frame_index % len(durations)
++        col = anim.get("columns", list(range(len(durations))))[self._frame_index % len(durations)]
+         key = (row, col)
+         if key not in self._frames_cache:
+             self._frames_cache[key] = crop_frame(self.atlas, row, col)
+@@ -1071,13 +1156,8 @@
+         center = self.geometry().center()
+         dx = mouse.x() - center.x()
+         dy = mouse.y() - center.y()
+-        import math
+-        angle = math.degrees(math.atan2(dy, dx))
+-        # 8 方向扇区（45°/格），按新底稿第 9 行各列实际朝向查表：
+-        # 扇区顺序 左/左上/上/右上/右/右下/下/左下 -> 列 2/6/1/7/5/4/3/0
+-        sector = int(((angle + 180 + 22.5) % 360) // 45)
+         row = 9  # look 帧在 row 9
+-        col = (2, 6, 1, 7, 5, 4, 3, 0)[sector]
++        col = look_column(dx, dy)
+         key = (row, col)
+         if key not in self._frames_cache:
+             self._frames_cache[key] = crop_frame(self.atlas, row, col)
+@@ -1095,10 +1175,10 @@
+         self._bubble_text = msg
+         self._bubble.set_message(msg, accent=STATE_UI_COLORS.get(self._state, "#1687ff"))
+         self._bubble.position_near_pet()
+-        self._bubble.show()
+-        self._bubble.raise_()
++        self._bubble.setVisible(self._pet_visible)
+ 
+     def _hide_bubble(self):
++        self._auto_render_signature = None
+         self._bubble_text = ""
+         self._auto_prefix = ""
+         self._auto_snippet = ""
+@@ -1114,28 +1194,33 @@
+         # 完全无变化且气泡可见时，直接返回——不渲染、不重定位、不置顶，
+         # 这是消除闪烁的最后一道闸（此前 render 去重了，但窗口操作仍在反复执行）。
+         full = prefix + ("\n" + snippet if snippet else "")
+-        if full == self._bubble_text and self._bubble and self._bubble.isVisible():
++        if (full == self._bubble_text and state == self._auto_state and steps == self._auto_steps
++                and self._bubble and self._bubble.isVisible()):
+             return
+         self._auto_state = state
+         self._auto_steps = steps
+         if self._bubble is None:
+             self._bubble = BubbleWindow(self)
+-        if snippet and snippet != self._auto_snippet:
++        if snippet != self._auto_snippet:
+             self._auto_snippet = snippet
+             self._tw_pos = 0
+-            self._tw_timer.start()          # 新思考到来：摘录从头逐字打出
++            if snippet:
++                self._tw_timer.start()
++            else:
++                self._tw_timer.stop()
+         self._auto_prefix = prefix
+         self._auto_render()
+         self._bubble.position_near_pet()
+-        self._bubble.show()
+-        self._bubble.raise_()
++        self._bubble.setVisible(self._pet_visible)
+ 
+     def _auto_render(self):
+         shown = self._auto_snippet[: self._tw_pos]
+         if self._bubble is None:
+             return
+         text = self._auto_prefix + ("\n" + shown if shown else "")
+-        if text != self._bubble_text:       # 内容没变就不碰窗口，防闪烁
++        signature = (text, self._auto_state, self._auto_steps, self._auto_snippet)
++        if signature != self._auto_render_signature:
++            self._auto_render_signature = signature
+             self._bubble_text = text
+             color = STATE_UI_COLORS.get(self._auto_state or "running", "#3b82f6")
+             step_text = f"第 {self._auto_steps} 步" if self._auto_steps else ""
+@@ -1162,20 +1247,21 @@
+         except Exception:
+             pass
+         try:
+-            if not TASKS_DIR.exists():
+-                return
+             tasks = []
+             now = time.time()
+-            for f in sorted(TASKS_DIR.iterdir()):
+-                if not f.is_file():
++            for f in sorted(TASKS_DIR.iterdir()) if TASKS_DIR.exists() else []:
++                if not f.is_file() or f.suffix.lower() not in (".txt", ".json"):
+                     continue
+                 name = f.stem
+                 if not name:
+                     continue
+-                age = now - f.stat().st_mtime
++                try:
++                    age = now - f.stat().st_mtime
++                    raw = f.read_text(encoding="utf-8-sig").strip()
++                except (OSError, UnicodeError):
++                    continue
+                 if age > TASK_STALE_SEC:
+                     continue
+-                raw = f.read_text(encoding="utf-8").strip()
+                 if not raw:
+                     continue
+                 # 解析内容
+@@ -1214,7 +1300,8 @@
+                 f"{t['id']}|{t['status']}|{t['current']}|{t['total']}|{t['message']}"
+                 for t in tasks
+             )
+-            if sig != self._task_last_sig:
++            self._file_tasks = tasks
++            if sig != self._task_last_sig and not self._progress_active and not self._state_tasks:
+                 self._task_last_sig = sig
+                 log(f"scan_tasks: count={len(tasks)} sig={sig[:80]}")
+                 self._sync_bubbles(tasks)
+@@ -1230,6 +1317,7 @@
+         from_auto=False：手动/进度任务驱动——接管显示，退出事件驱动文案。
+         """
+         try:
++            tasks = self._normalize_tasks(tasks)
+             # 签名防抖：内容没变就不动窗口（多会话高频轮询时避免无谓重建）
+             sig = "\n".join(
+                 f"{t.get('id')}|{t.get('status')}|{t.get('current')}|{t.get('total')}|{t.get('message')}|{t.get('name')}"
+@@ -1258,8 +1346,7 @@
+                     log(f"created bubble for {tid}")
+                 b = self._task_bubbles[tid]
+                 b.update_task(t["name"], t["status"], t["current"], t["total"], t["message"])
+-                b.show()
+-                b.raise_()
++                b.setVisible(self._pet_visible)
+ 
+             # 隐藏简单气泡（多任务时）
+             if tasks:
+@@ -1268,12 +1355,14 @@
+                 log(f"sync_bubbles done: {len(self._task_bubbles)} bubbles visible")
+                 # 状态联动（仅手动/进度任务驱动；自动模式动画由 _apply_auto_state 统一管）
+                 if not from_auto:
+-                    any_run = any(t["status"] == "running" for t in tasks)
+-                    all_done = all(t["status"] == "completed" for t in tasks)
+-                    if any_run and self._state not in ("running", "look"):
+-                        self._set_state("running")
+-                    elif all_done and self._state not in ("review", "look"):
+-                        self._set_state("review")
++                    states = {t["status"] for t in tasks}
++                    anim = next((a for s, a in (("failed", "failed"), ("waiting", "waiting"),
++                        ("working", "running"), ("running", "running"), ("review", "review"),
++                        ("thinking", "thinking")) if s in states), "idle")
++                    if anim != self._state:
++                        self._auto_active = True  # 独立卡片已承载文案
++                        self._set_state(anim)
++                        self._auto_active = False
+             else:
+                 # 全部结束
+                 if self._task_bubbles:
+@@ -1294,32 +1383,65 @@
+         if not self._task_bubbles:
+             return
+         pet_geo = self.geometry()
+-        screen = QApplication.primaryScreen().availableGeometry()
++        screen = (QApplication.screenAt(pet_geo.center()) or self.screen()).availableGeometry()
+         gap = 4
+         items = sorted(self._task_bubbles.values(), key=lambda b: b.task_id)
+ 
+-        # 竖向：从桌宠上方底部开始，往上堆叠
+-        cur_y = pet_geo.top() - gap
++        total_h = sum(b.height() + gap for b in items) - gap
++        top_space = pet_geo.top() - screen.top() - gap
++        bottom_space = screen.bottom() - pet_geo.bottom() - gap
++        if top_space >= total_h:
++            cur_y = pet_geo.top() - gap - total_h
++        elif bottom_space >= total_h:
++            cur_y = pet_geo.bottom() + gap
++        else:
++            cur_y = screen.top() + gap
+         center_x = pet_geo.center().x()
+ 
+         for b in items:
+             bw = b.width()
+             bh = b.height()
+-            top = cur_y - bh
+-            # 如果超出屏幕顶部，改为桌宠下方
+-            if top < screen.top() + 4:
+-                cur_y = pet_geo.bottom() + gap
+-                top = cur_y
++            if not self._pet_visible or cur_y + bh > screen.bottom() - gap:
++                b.hide()
++                continue
++            top = cur_y
+             left = center_x - bw // 2
+             # 不超出屏幕左右
+             left = max(screen.left() + 4, min(left, screen.right() - bw - 4))
+             b.move(left, top)
+             b.show()
+-            b.raise_()
+-            cur_y = top - gap
++            cur_y = top + bh + gap
++
++    @staticmethod
++    def _normalize_tasks(tasks):
++        if not isinstance(tasks, list):
++            return []
++        out = []
++        for i, task in enumerate(tasks):
++            if not isinstance(task, dict):
++                continue
++            t = {k: str(task.get(k) or "") for k in ("id", "name", "message", "status")}
++            t["id"] = t["id"] or t["name"] or str(i)
++            t["name"] = t["name"] or t["id"]
++            t["status"] = t["status"] or "running"
++            for k in ("current", "total"):
++                try:
++                    t[k] = max(0, int(task.get(k, 0)))
++                except (ValueError, TypeError, OverflowError):
++                    t[k] = 0
++            if t["total"]:
++                t["current"] = min(t["current"], t["total"])
++            out.append(t)
++        return out
+ 
+     # ---- state.json 控制 ----
+     def _check_state(self):
++        try:
++            self._read_state()
++        finally:
++            self._check_progress()
++
++    def _read_state(self):
+         """读取 state.json 控制文件。
+ 
+         state.json 是常驻文件——里面的内容绝不能每秒反复应用，否则手动通道的
+@@ -1372,16 +1494,29 @@
+                 return
+ 
+             if visible:
+-                self.show()
++                self._set_visible(True)
+             else:
+-                self.hide()
++                self._set_visible(False)
++
++            if state.get("reset_position"):
++                self._reset_position()
++                state["reset_position"] = False
++                STATE_PATH.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
++                self._last_state_mtime = STATE_PATH.stat().st_mtime
++
++            if "tasks" in state:
++                self._state_tasks = self._normalize_tasks(state["tasks"])
++                self._sync_bubbles(self._state_tasks or self._file_tasks)
+ 
+             if new_state in VALID_STATES:
+                 # 避免重复设置
+                 if new_state != self._state or one_shot:
+                     self._set_state(new_state, one_shot=one_shot, next_state=next_state)
++                if not self._state_tasks and not self._file_tasks:
+                     if msg:
+-                        self._show_bubble(msg)
++                        self._show_bubble(str(msg))
++                    elif "message" in state:
++                        self._hide_bubble()
+ 
+             # 进度文件驱动
+             self._check_progress()
+@@ -1397,39 +1532,30 @@
+         只有进度驱动处于激活态（曾读到过内容）时，"消失"才代表退出进度驱动。
+         """
+         try:
+-            if not PROGRESS_PATH.exists():
+-                if self._progress_active:
+-                    self._progress_active = False
+-                    self._hide_bubble()
+-                    if self._state not in ("idle", "look", "waving", "jumping", "hero-celebrate"):
+-                        self._set_state("idle")
+-                return
+-            raw = PROGRESS_PATH.read_text(encoding="utf-8").strip()
++            raw = PROGRESS_PATH.read_text(encoding="utf-8-sig").strip() if PROGRESS_PATH.exists() else ""
+             if not raw:
+                 if self._progress_active:
+                     self._progress_active = False
++                    self._progress_signature = None
+                     self._hide_bubble()
+-                    if self._state not in ("idle", "look", "waving", "jumping", "hero-celebrate"):
+-                        self._set_state("idle")
++                    self._sync_bubbles(self._state_tasks or self._file_tasks)
++                return
++            if raw == self._progress_signature:
++                return
++            obj = json.loads(raw) if raw.startswith("{") else {"message": raw}
++            if not isinstance(obj, dict):
+                 return
+             self._progress_active = True
+-            # 多任务 JSON
+-            if raw.startswith("{"):
+-                obj = json.loads(raw)
+-                msg = obj.get("message", "")
+-                tasks = obj.get("tasks", [])
+-                p_state = obj.get("state", "running")
+-                if tasks:
+-                    self._sync_bubbles(tasks)
+-                elif msg:
+-                    self._show_bubble(msg)
+-                if p_state in VALID_STATES and p_state != self._state:
+-                    self._set_state(p_state)
+-            else:
+-                # 单消息
+-                self._show_bubble(raw)
+-                if self._state != "running":
+-                    self._set_state("running")
++            self._progress_signature = raw
++            tasks = self._normalize_tasks(obj.get("tasks", []))
++            self._sync_bubbles(tasks)
++            p_state = obj.get("state", "running")
++            self._auto_active = True
++            if p_state in VALID_STATES and p_state != self._state:
++                self._set_state(p_state)
++            self._auto_active = False
++            if not tasks:
++                self._show_bubble(str(obj.get("message") or ""))
+         except Exception as e:
+             log(f"check_progress err: {e}")
+ 
+@@ -1451,31 +1577,43 @@
+ # ============================================================
+ # 主入口
+ # ============================================================
+-def _already_running() -> bool:
+-    """探测是否已有桌宠实例（host.pid 指向的进程存活 = 在跑）。
+-
+-    pet-start.py 在启动前已做过一次此判断，这里再兜底一次：
+-    防止直接运行 shinchan_pet_qt.py 时重复拉起多实例。
+-    """
+-    if not PID_PATH.exists():
+-        return False
+-    try:
+-        pid = int(PID_PATH.read_text(encoding="utf-8").strip())
+-    except Exception:
+-        return False
+-    try:
++
++class RecallHotkey(QAbstractNativeEventFilter):
++    """Global Ctrl+Alt+P. Registration failure never prevents startup."""
++    ID = 0x5348
++
++    def __init__(self, pet):
++        super().__init__()
++        self.pet = pet
++        self.registered = False
+         if os.name == "nt":
+-            import subprocess
+-            r = subprocess.run(["tasklist", "/FI", f"PID eq {pid}"],
+-                               capture_output=True, timeout=20)
+-            return str(pid).encode() in r.stdout
+-        os.kill(pid, 0)
+-        return True
+-    except Exception:
+-        return False
+-
++            import ctypes
++            self.registered = bool(ctypes.windll.user32.RegisterHotKey(None, self.ID, 0x4003, ord('P')))
++            if not self.registered:
++                log("Ctrl+Alt+P 被占用，可用 show/reset-position 命令召回")
++
++    def nativeEventFilter(self, event_type, message):
++        if self.registered:
++            import ctypes
++            from ctypes import wintypes
++            msg = wintypes.MSG.from_address(int(message))
++            if msg.message == 0x0312 and msg.wParam == self.ID:
++                self.pet._reset_position()
++                self.pet._set_visible(True)
++                return True, 0
++        return False, 0
++
++    def close(self):
++        if self.registered:
++            import ctypes
++            ctypes.windll.user32.UnregisterHotKey(None, self.ID)
++            self.registered = False
+ 
+ def main():
++    RUNTIME_ROOT.mkdir(parents=True, exist_ok=True)
++    instance_lock = InstanceLock(RUNTIME_ROOT)
++    if not instance_lock.acquire():
++        return 0
+     # pythonw 下 sys.stdout/stderr 是 None——任何写它们的代码（包括 Qt 的警告
+     # 桥接、第三方库的 print）都会抛 AttributeError 且无处可看，进程无声死亡。
+     # 全部兜底重定向：stdout 丢弃，stderr 进日志，异常从此可见。
+@@ -1489,12 +1627,6 @@
+ 
+     # 单实例守卫：已有桌宠在跑，本次启动的重复实例立即静默退出。
+     # 必须在创建任何窗口之前拦截。
+-    if _already_running():
+-        try:
+-            log("already running: 检测到实例在运行，本次启动退出（幂等）")
+-        except Exception:
+-            pass
+-        return
+     # pythonw 下 sys.stdout/stderr 是 None——任何写它们的代码（包括 Qt 的警告
+     # 桥接、第三方库的 print）都会抛 AttributeError 且无处可看，进程无声死亡。
+     # 全部兜底重定向：stdout 丢弃，stderr 进日志，异常从此可见。
+@@ -1517,6 +1649,7 @@
+     # 确保运行时目录
+     RUNTIME_ROOT.mkdir(parents=True, exist_ok=True)
+     # faulthandler：C++ 层硬崩溃（Qt 段错误）时把 Python 调用栈写盘，否则死得无声无息
++    _fh = None
+     try:
+         import faulthandler
+         _fh = open(RUNTIME_ROOT / "crash.log", "w", buffering=1)
+@@ -1538,7 +1671,11 @@
+     log("step1: QApplication 就绪")
+ 
+     pet = PetWindow()
++    hotkey = RecallHotkey(pet)
++    app.installNativeEventFilter(hotkey)
+     pet.show()
++    pet._last_state_mtime = -1
++    pet._check_state()
+     log("step2: PetWindow 创建完成")
+ 
+     # 启动计时器
+@@ -1555,8 +1692,17 @@
+     timer.timeout.connect(lambda: None)
+ 
+     log("蜡笔小新桌宠 (PySide6) 启动成功")
+-    sys.exit(app.exec())
++    try:
++        return app.exec()
++    finally:
++        hotkey.close()
++        if _fh is not None:
++            faulthandler.disable()
++            _fh.close()
++        if PID_PATH.exists() and PID_PATH.read_text(encoding="utf-8").strip() == str(os.getpid()):
++            PID_PATH.unlink()
++        instance_lock.release()
+ 
+ 
+ if __name__ == "__main__":
+-    main()
++    sys.exit(main())
+--- before/scripts/start-pet.ps1
++++ after/scripts/start-pet.ps1
+@@ -24,6 +24,8 @@
+     exit 1
+ }
+ 
+-# -B：禁止写入 .pyc 字节码缓存（技能目录需保持纯净，技能广场审核禁止 .pyc）
+-Start-Process -FilePath $pythonw -ArgumentList @('-B', $MainPy) -WindowStyle Hidden
+-Write-Host "蜡笔小新桌宠已启动（$pythonw -B）"+# 所有入口复用启动器的单实例、依赖探测和启动结果检查。
++$consolePython = Join-Path (Split-Path -Parent $pythonw) 'python.exe'
++if (-not (Test-Path -LiteralPath $consolePython)) { $consolePython = $pythonw }
++& $consolePython -X utf8 -B (Join-Path $PSScriptRoot 'pet-start.py')
++exit $LASTEXITCODE
+--- before/tests/launcher_smoke.py
++++ after/tests/launcher_smoke.py
+@@ -0,0 +1,54 @@
++"""Exercise real Windows entry points in an isolated path containing spaces/apostrophe."""
++import os
++import shutil
++import subprocess
++import sys
++import tempfile
++import time
++from pathlib import Path
++
++root=Path(__file__).resolve().parents[1]
++with tempfile.TemporaryDirectory(prefix='shinchan launch ') as temp:
++    project=Path(temp)/"pet's project"
++    project.mkdir()
++    for directory in ('scripts','assets'):
++        shutil.copytree(root/directory,project/directory)
++    runtime=Path(temp)/'runtime'
++    env={**os.environ,'PET_RUNTIME_DIR':str(runtime),'PET_TASKS_DIR':str(Path(temp)/'tasks'),
++         'PET_PROGRESS_FILE':str(Path(temp)/'progress.txt'),'TELEAGENT_DB':str(Path(temp)/'missing.db'),
++         'QT_QPA_PLATFORM':'offscreen','PYTHONUTF8':'1'}
++    starter=project/'scripts/pet-start.py'
++    ctl=project/'scripts/shinchan-pet.ps1'
++    def run(args):
++        result=subprocess.run(args,env=env,cwd=project,capture_output=True,text=True,encoding='utf-8',timeout=35)
++        if result.returncode:
++            raise AssertionError(result.stdout+'\n'+result.stderr)
++        return result.stdout
++    def wait_exit(pid):
++        # PID removal happens just before interpreter shutdown; wait for the process
++        # too, so Windows has released every log/DLL handle before temp cleanup.
++        subprocess.run(['powershell.exe','-NoProfile','-Command',
++                        f'Wait-Process -Id {int(pid)} -ErrorAction SilentlyContinue'],
++                       capture_output=True,timeout=15)
++    try:
++        run([sys.executable,'-B',str(starter)])
++        pid=(runtime/'host.pid').read_text()
++        run([sys.executable,'-B',str(starter)])
++        assert pid==(runtime/'host.pid').read_text(), 'duplicate instance'
++        run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(ctl),'-Command','stop'])
++        wait_exit(pid)
++        for _ in range(30):
++            if not (runtime/'host.pid').exists():break
++            time.sleep(.1)
++        assert not (runtime/'host.pid').exists(), 'PID not cleaned'
++        run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(ctl),'-Command','start'])
++        assert (runtime/'host.pid').exists()
++        print('PASS: spaced/apostrophe path, Python start, repeated start, stop/PID cleanup, PowerShell control start.')
++    finally:
++        last_pid=(runtime/'host.pid').read_text() if (runtime/'host.pid').exists() else None
++        subprocess.run([sys.executable,'-B',str(starter),'--stop'],env=env,capture_output=True,timeout=10)
++        if last_pid:
++            wait_exit(last_pid)
++        for _ in range(50):
++            if not (runtime/'host.pid').exists():break
++            time.sleep(.1)
+--- before/tests/render_smoke.py
++++ after/tests/render_smoke.py
+@@ -0,0 +1,54 @@
++"""Render actual Qt widgets and exercise dragging/double-click without a live DB."""
++import sys
++from pathlib import Path
++from unittest.mock import patch
++from test_pet import GuiTests, gui
++from PySide6.QtTest import QTest
++from PySide6.QtGui import QFontDatabase
++
++out = Path(__file__).resolve().parents[1] / 'qa'
++GuiTests.setUpClass()
++# The offscreen plugin does not enumerate Windows fonts automatically.
++for font in ('C:/Windows/Fonts/msyh.ttc','C:/Windows/Fonts/segoeui.ttf'):
++    QFontDatabase.addApplicationFont(font)
++test = GuiTests()
++test.setUp()
++try:
++    pet = test.pet
++    pet.move(320,400)
++    pet._auto_active = True
++    pet._set_state('running')
++    pet._show_auto('执行命令', '验证图片完整性、任务状态与多会话气泡', state='working', steps=12)
++    for _ in range(30): pet._tw_tick()
++    test.app.processEvents()
++    pet.grab().save(str(out/'qt-pet.png'))
++    pet._bubble.grab().save(str(out/'qt-bubble.png'))
++    pet._sync_bubbles([{'id':'a','name':'图片检查','status':'completed','current':88,'total':88,'message':'图片取帧已校正'},
++                       {'id':'b','name':'气泡测试','status':'running','current':2,'total':3,'message':'展开详情、拖动桌宠、检查屏幕边界'}])
++    b=pet._task_bubbles['b']
++    QTest.mouseClick(b,gui.Qt.MouseButton.LeftButton)
++    test.app.processEvents()
++    assert b._expanded
++    b.grab().save(str(out/'qt-task-expanded.png'))
++    pet._set_state('idle')
++    QTest.mouseDClick(pet,gui.Qt.MouseButton.LeftButton)
++    assert pet._state == 'waving' and pet._one_shot
++    pet._sync_bubbles([])
++    # Actual frame cache/painter used by the app, on two backgrounds.
++    canvas=gui.QPixmap(8*192,10*232)
++    canvas.fill(gui.QColor('#f2f4f7'))
++    p=gui.QPainter(canvas)
++    p.setFont(gui.QFont('Microsoft YaHei UI',10))
++    for r,(state,anim) in enumerate(gui.ANIMATIONS.items()):
++        for idx,col in enumerate(anim.get('columns',range(len(anim['durations'])))):
++            x,y=idx*192,r*232
++            p.fillRect(x,y,192,232,gui.QColor('#f2f4f7' if idx%2==0 else '#253247'))
++            p.setPen(gui.QColor('#17243b' if idx%2==0 else 'white'))
++            p.drawText(x+5,y+19,f'{state} {col}')
++            frame=gui.crop_frame(pet.atlas,anim['row'],col)
++            p.drawPixmap(gui.QRect(x,y+24,192,208),frame)
++    p.end()
++    canvas.save(str(out/'qt-played-frames.png'))
++    print('Qt rendered: pet, structured bubble, expanded task, all played frames. Click expansion and double-click waving passed.')
++finally:
++    test.tearDown()
+--- before/tests/test_pet.py
++++ after/tests/test_pet.py
+@@ -0,0 +1,230 @@
++"""Offline regressions. Only temporary SQLite/state files are written."""
++import json
++import os
++import sqlite3
++import sys
++import tempfile
++import time
++import unittest
++from pathlib import Path
++from unittest.mock import patch
++
++sys.dont_write_bytecode = True
++os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
++sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
++import pet_events as events
++import shinchan_pet_qt as gui
++from pet_runtime import InstanceLock, is_running
++
++
++class EventTests(unittest.TestCase):
++    def setUp(self):
++        self.tmp = tempfile.TemporaryDirectory()
++        self.db = Path(self.tmp.name) / 'teleagent.db'
++        self.conn = sqlite3.connect(self.db)
++        self.conn.executescript('''
++            CREATE TABLE session(id TEXT PRIMARY KEY, title TEXT, time_updated INTEGER);
++            CREATE TABLE message(id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT);
++            CREATE TABLE part(id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT);
++            INSERT INTO session VALUES('s', 'Test', 1);
++            INSERT INTO message VALUES('m', 's', 1, 1, '{"role":"assistant"}');
++        ''')
++        self.conn.commit()
++        self.w = events.TranscriptWatcher()
++        self.w.db_path = self.db
++        self.w.status_path = Path(self.tmp.name) / 'session-status.json'
++        self.w.poll()
++
++    def tearDown(self):
++        if self.w._conn:
++            self.w._conn.close()
++        self.conn.close()
++        self.tmp.cleanup()
++
++    def insert(self, ident, data, ts=1000):
++        self.conn.execute('INSERT INTO part VALUES(?, ?, ?, ?, ?, ?)',
++                          (str(ident), 'm', 's', ts, ts, json.dumps(data)))
++        self.conn.commit()
++
++    def test_same_timestamp_across_polls(self):
++        self.insert(1, {'type': 'reasoning'})
++        self.assertEqual(len(self.w.poll()), 1)
++        self.insert(2, {'type': 'reasoning'})
++        self.assertEqual(len(self.w.poll()), 1)
++
++    def test_more_than_one_page_same_timestamp(self):
++        for i in range(601):
++            self.insert(i, {'type': 'reasoning'})
++        self.assertEqual(len(self.w.poll()) + len(self.w.poll()), 601)
++
++    def test_tool_failure_update(self):
++        self.insert(1, {'type': 'tool', 'tool': 'read', 'state': {'status': 'running'}})
++        tracker = events.SessionTracker()
++        for ev in self.w.poll():
++            tracker.on_event({**ev, 'ts': int(time.time()*1000)})
++        self.conn.execute('UPDATE part SET time_updated=?, data=? WHERE id=?',
++                          (1001, json.dumps({'type':'tool','tool':'read','state':{'status':'error'}}), '1'))
++        self.conn.commit()
++        for ev in self.w.poll():
++            tracker.on_event({**ev, 'ts': int(time.time()*1000)})
++        self.assertEqual(tracker.resolve()[0], 'failed')
++        self.assertEqual(tracker.sessions['s']['count'], 1)
++
++    def test_assistant_stream_not_user_prompt(self):
++        self.insert(1, {'type': 'text', 'text': 'private body'})
++        ev = self.w.poll()[0]
++        self.assertNotEqual(ev['event'], 'UserPromptSubmit')
++        self.assertNotIn('private body', str(ev))
++
++    def test_non_tool_clears_old_label(self):
++        t = events.SessionTracker()
++        t.on_event({'event':'PreToolUse','session_id':'s','tool_name':'read','snippet':'old.txt'})
++        t.on_event({'event':'Stop','session_id':'s'})
++        state, info = t.resolve()
++        self.assertEqual(state, 'done')
++        self.assertEqual(info['label'], '已完成')
++        self.assertEqual(info['snippet'], '')
++
++
++class GuiTests(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.app = gui.QApplication.instance() or gui.QApplication([])
++
++    def setUp(self):
++        self.tmp = tempfile.TemporaryDirectory()
++        root = Path(self.tmp.name)
++        self.patches = [patch.object(gui, name, value) for name, value in {
++            'RUNTIME_ROOT':root, 'STATE_PATH':root/'state.json', 'LOG_PATH':root/'log.txt',
++            'POSITION_PATH':root/'position.json',
++            'PROGRESS_PATH':root/'progress.txt', 'TASKS_DIR':root/'tasks',
++        }.items()]
++        for p in self.patches:
++            p.start()
++        self.pet = gui.PetWindow()
++        self.pet.show()
++
++    def tearDown(self):
++        for obj in self.pet.findChildren(gui.QTimer):
++            obj.stop()
++        for b in self.pet._task_bubbles.values():
++            b.close()
++        if self.pet._bubble:
++            self.pet._bubble.close()
++        self.pet.close()
++        self.pet.deleteLater()
++        self.app.processEvents()
++        for p in reversed(self.patches):
++            p.stop()
++        self.tmp.cleanup()
++
++    def command(self, **data):
++        gui.STATE_PATH.write_text(json.dumps(data), encoding='utf-8')
++        self.pet._last_state_mtime = -1
++        self.pet._check_state()
++
++    def test_same_state_message_updates(self):
++        self.command(state='running', message='first')
++        self.command(state='running', message='second')
++        self.assertEqual(self.pet._bubble_text, 'second')
++
++    def test_hide_also_hides_bubble(self):
++        self.command(state='running', message='first')
++        self.command(state='running', visible=False)
++        self.assertFalse(self.pet._bubble.isVisible())
++        self.pet._show_bubble('background event')
++        self.assertFalse(self.pet._bubble.isVisible())
++
++    def test_state_tasks_consumed(self):
++        self.command(tasks=[{'id':'t','name':'test','status':'running','current':1,'total':3,'message':'go'}])
++        self.assertIn('t', self.pet._task_bubbles)
++        self.command(tasks=[])
++        self.assertFalse(self.pet._task_bubbles)
++
++    def test_progress_without_state_file(self):
++        gui.PROGRESS_PATH.write_text('custom progress', encoding='utf-8')
++        self.pet._check_state()
++        self.assertEqual(self.pet._bubble_text, 'custom progress')
++        self.pet._apply_auto_state(force=True)
++        self.assertEqual(self.pet._bubble_text, 'custom progress')
++
++    def test_progress_tasks_deleted(self):
++        gui.PROGRESS_PATH.write_text(json.dumps({'tasks':[{'id':'t','name':'test','status':'running','current':1,'total':3,'message':'go'}]}), encoding='utf-8')
++        self.pet._check_progress()
++        gui.PROGRESS_PATH.unlink()
++        self.pet._check_progress()
++        self.assertFalse(self.pet._task_bubbles)
++
++    def test_step_only_updates(self):
++        self.pet._show_auto('读取文件', '', state='review', steps=1)
++        self.pet._show_auto('读取文件', '', state='review', steps=2)
++        self.assertEqual(self.pet._auto_steps, 2)
++
++    def test_empty_snippet_clears_previous(self):
++        self.pet._show_auto('读取文件', 'old.txt', state='review', steps=1)
++        self.pet._show_auto('已完成', '', state='done')
++        self.assertEqual(self.pet._auto_snippet, '')
++
++    def test_invalid_atlas_rejected(self):
++        bad = Path(self.tmp.name) / 'bad.png'
++        bad.write_text('not an image')
++        with patch.object(gui, 'ATLAS_PATH', bad), self.assertRaises(ValueError):
++            gui.load_atlas()
++
++    def test_bubbles_fit_screen_without_overlap(self):
++        self.pet.move(20, 5)
++        self.pet._sync_bubbles([{'id':str(i),'name':'test','status':'running','current':0,'total':0,'message':'detail'} for i in range(4)])
++        rects = [b.geometry() for b in self.pet._task_bubbles.values() if b.isVisible()]
++        screen = self.pet.screen().availableGeometry()
++        self.assertTrue(all(screen.contains(r) for r in rects))
++        self.assertTrue(all(not a.intersects(b) for i,a in enumerate(rects) for b in rects[i+1:]))
++
++    def test_all_frames_have_clear_edges(self):
++        for row in range(11):
++            for col in range(8):
++                frame = gui.crop_frame(self.pet.atlas,row,col).toImage()
++                self.assertEqual((frame.width(),frame.height()),(384,416))
++                self.assertTrue(all(frame.pixelColor(x,0).alpha()==0 and frame.pixelColor(x,415).alpha()==0 for x in range(384)))
++                self.assertTrue(all(frame.pixelColor(0,y).alpha()==0 and frame.pixelColor(383,y).alpha()==0 for y in range(416)))
++
++    def test_look_directions_use_face_not_back(self):
++        self.assertEqual(gui.look_column(-100,0),5)
++        self.assertEqual(gui.look_column(100,0),2)
++        self.assertEqual(gui.look_column(0,100),0)
++        self.assertEqual(gui.look_column(0,-100),0)
++
++    def test_idle_poll_does_not_cancel_mouse_look(self):
++        self.pet._set_state('look')
++        self.pet._apply_auto_state()
++        self.assertEqual(self.pet._state,'look')
++
++    def test_single_instance_lock_released(self):
++        root=Path(self.tmp.name)
++        lock=InstanceLock(root)
++        self.assertTrue(lock.acquire())
++        try:
++            self.assertTrue(is_running(root))
++            other=InstanceLock(root)
++            self.assertFalse(other.acquire())
++        finally:
++            lock.release()
++        self.assertFalse(is_running(root))
++
++    def test_done_does_not_restart_celebration(self):
++        self.pet._tracker.on_event({'event':'Stop','session_id':'s'})
++        self.pet._apply_auto_state(force=True)
++        self.pet._done_timer.stop()
++        self.pet._confirm_done()
++        self.assertEqual(self.pet._state,'hero-celebrate')
++        self.pet._set_state('idle')
++        self.pet._apply_auto_state()
++        self.assertFalse(self.pet._done_timer.isActive())
++
++    def test_task_values_are_normalized(self):
++        self.command(tasks=[{'name':'test','total':'3','current':'7','message':None}])
++        bubble=self.pet._task_bubbles['test']
++        self.assertEqual((bubble._current,bubble._total,bubble._message),(3,3,''))
++
++
++if __name__ == '__main__':
++    unittest.main(verbosity=2)
+--- before/SKILL.md
++++ after/SKILL.md
+@@ -16,6 +16,8 @@
+ 桌宠常驻后**自动跟随** TeleAgent 工作状态，无需 agent 手动写任务文件。
+ 
+ **原理**：每 250ms 增量读取 `teleagent.db` 的 `part` 表（按 rowid 游标不丢事件），按 `type` 字段映射状态：
++
++运行中的工具还会检查原记录的完成/失败更新；消息角色读取 `message.data.role`，不再通过文本时间字段猜测。`session-status.json` 的 running 保活按会话分别处理，paused / needs_intervention 显示等待。
+ 
+ | part type | 含义 | 桌宠状态 | 气泡内容 |
+ |---|---|---|---|
+@@ -40,7 +42,7 @@
+ 桌宠异常时用以下脚本定位（均只读、不联网）：
+ 
+ - `scripts/pet-status.py`：查看桌宠"眼里"的当前状态（`--watch` 持续跟踪），用于确认自动感知是否正常工作、气泡内容是否正确。
+-- `scripts/pet-log.py`：对比思维链原文与气泡摘录（`-n 20` / `--watch`），用于调气泡显示策略。
++- `scripts/pet-log.py`：查看与桌宠相同的结构化事件、工具描述和文件名（`-n 20` / `--watch`），不打印思考或消息正文。
+ - `scripts/pet-check.py`：部署状态检查（`DEPLOYED` / `READY` / `NEED_INSTALL` 三态）。
+ 
+ ## 自动部署（调用技能时自动执行）
+@@ -50,7 +52,7 @@
+ | 状态 | 含义 | 自动动作 |
+ |---|---|---|
+ | `DEPLOYED` | 已部署 + 运行中 | 直接进入任务陪伴 |
+-| `READY` | 已部署未运行 | 自动启动桌宠 |
++| `READY` | Python + PySide6 已就绪、未运行（config.json 可选） | 自动启动桌宠 |
+ | `NEED_INSTALL` | 未部署/依赖缺失 | 询问用户 → 运行 `install-env.ps1` → 启动 |
+ 
+ **权限确认点**（涉及系统级操作时先用提问工具确认）：
+@@ -88,11 +90,11 @@
+ # --status 查状态 / --stop 退出 / --foreground 前台调试
+ ```
+ 
+-已运行则静默跳过（单实例，host.pid 探测）。也可双击 `scripts/start-pet.ps1` 或运行 `python scripts/pet-start.py`。
++已运行则静默跳过（操作系统文件锁保证单实例；host.pid 供诊断）。也可运行 `scripts/start-pet.ps1` 或 `python scripts/pet-start.py`。所有启动入口复用同一启动器，支持带空格的项目路径。
+ 
+ ## 状态控制
+ 
+-`shinchan-pet.ps1` 写 state.json 控制桌宠。**不要用 `-Command start`**（会拉起旧宿主造成双开），召唤用 `pet-start.py`。
++`shinchan-pet.ps1` 写 state.json 控制桌宠；`-Command start` / `show` 复用同一启动器。`state.json` 中的 `tasks` 数组会同步到独立任务气泡。
+ 
+ ```powershell
+ $Ctl = Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts\shinchan-pet.ps1'
+@@ -181,4 +183,13 @@
+ - 双击招手
+ - 右键菜单
+ - `Ctrl+Alt+P` 召回到鼠标所在屏幕
+-- 仅本机运行，不联网，不读工作区内容+- 仅本机运行，不联网，不读工作区内容
++
++## 图片与验证
++
++- 原始素材保留在 `assets/spritesheet.png`。它的实际人物位置并非等分网格，因此必须同时携带 `assets/spritesheet-layout.json`；宿主按该文件校正取帧、边距与落脚位置，并校验素材哈希。
++- 原图缺少可信的正上/正下凝视帧；鼠标处于垂直方向时回到正面。左右跟随已按画面方向修正，不使用背影替代向下看。
++- 工作、等待、检查等循环只播放适合该状态的帧；去掉突兀站起、躺倒以及装饰物被切断的帧。原 PNG 不重绘。
++- `qa/animation-preview.html`：原版/修复后的动画对比，可选择动作、暂停、切换背景。
++- 测试：使用已装 PySide6 的 Python 执行 `-X utf8 -B -m unittest discover -s tests -v`；`tests/render_smoke.py` 验证 Qt 实际绘制、气泡展开和双击挥手。
++- 隔离测试可指定 `PET_RUNTIME_DIR`、`PET_TASKS_DIR`、`PET_PROGRESS_FILE` 与 `TELEAGENT_DB`。正常使用无需设置。

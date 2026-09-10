@@ -1,0 +1,1164 @@
+{
+  "size": [
+    3072,
+    4576
+  ],
+  "cell_size": [
+    384,
+    416
+  ],
+  "alpha_range": [
+    0,
+    251
+  ],
+  "empty_cells": [],
+  "edge_contact_cells": [],
+  "unique_cells": 88,
+  "cells": [
+    {
+      "row": 0,
+      "col": 0,
+      "bounds": [
+        60,
+        69,
+        322,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103716,
+      "hash": "bb76a493c7e2df06f1afa91b88233562ed0e595fff42572a772d03830859b2d1"
+    },
+    {
+      "row": 0,
+      "col": 1,
+      "bounds": [
+        60,
+        68,
+        322,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103713,
+      "hash": "35e1932ff36ee90deafa9eba2ed2f9024d8cc2d5a04c486ed4d474b0e36589b7"
+    },
+    {
+      "row": 0,
+      "col": 2,
+      "bounds": [
+        62,
+        66,
+        323,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103423,
+      "hash": "95e762e68045d6fffa91bedeb52880083ca3b0c6590bd845d19808a2bca43c20"
+    },
+    {
+      "row": 0,
+      "col": 3,
+      "bounds": [
+        60,
+        67,
+        323,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103228,
+      "hash": "e2a225cda4b7393fb67ba64959b7934575be6a61855a5f0323c791f912f6fd2b"
+    },
+    {
+      "row": 0,
+      "col": 4,
+      "bounds": [
+        60,
+        67,
+        323,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103402,
+      "hash": "90557da832ea40702fce92bdc243e9c6972a16b9996b0fd866abb880989f8f9c"
+    },
+    {
+      "row": 0,
+      "col": 5,
+      "bounds": [
+        60,
+        66,
+        323,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103462,
+      "hash": "8aae04f0aafd12c06d2fbeaa32510c1e1c1e0406ec143ce0292bb25f628561b5"
+    },
+    {
+      "row": 0,
+      "col": 6,
+      "bounds": [
+        62,
+        66,
+        324,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103068,
+      "hash": "fe8350c02effd36b341c5576e4bc7bf8c81598abef762cbefb18d3d2cd4b2bd7"
+    },
+    {
+      "row": 0,
+      "col": 7,
+      "bounds": [
+        62,
+        66,
+        324,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103559,
+      "hash": "b81811d69e632a700e4359de302ceb30ed5e878113f953f9c8777411df539ce7"
+    },
+    {
+      "row": 1,
+      "col": 0,
+      "bounds": [
+        40,
+        79,
+        343,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 110352,
+      "hash": "fd613f3d70b167b8d76ebbcdac3670ac27340e1f72b67d5345bb9d14520cfebb"
+    },
+    {
+      "row": 1,
+      "col": 1,
+      "bounds": [
+        40,
+        82,
+        343,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 109504,
+      "hash": "0aaf56afae35766ef6e03e769302f8f386d1789bd2f3662f72d9ffde386ad1d1"
+    },
+    {
+      "row": 1,
+      "col": 2,
+      "bounds": [
+        42,
+        83,
+        344,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 111677,
+      "hash": "47b2a0d97fd38910f2f96116f279b663ff44372ccd800645823656261cd71fca"
+    },
+    {
+      "row": 1,
+      "col": 3,
+      "bounds": [
+        40,
+        83,
+        344,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 111696,
+      "hash": "3145c89a9d07cf603ca5795bac3c4b774cc4f2f5c6af317787de2c711d9bf731"
+    },
+    {
+      "row": 1,
+      "col": 4,
+      "bounds": [
+        38,
+        85,
+        347,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 109552,
+      "hash": "81bff38c797cde9be300b4bfb3cdb555ef538a0c3ea61ac17c555c48f99a75ba"
+    },
+    {
+      "row": 1,
+      "col": 5,
+      "bounds": [
+        38,
+        85,
+        343,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 109767,
+      "hash": "7e8142ed20ee267e585a7aea5902ef98bb511cfa011953fc7ef4daed33679daf"
+    },
+    {
+      "row": 1,
+      "col": 6,
+      "bounds": [
+        38,
+        85,
+        345,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 109846,
+      "hash": "ce67d437bf2bd7070e9f0a7e8ec3ba425850d6b889d3f95917ec1dd249c66c8a"
+    },
+    {
+      "row": 1,
+      "col": 7,
+      "bounds": [
+        38,
+        79,
+        344,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 109744,
+      "hash": "d05a15347289983c4d325391b8fec32eafe4a911b4576a649583bb587511888b"
+    },
+    {
+      "row": 2,
+      "col": 0,
+      "bounds": [
+        40,
+        87,
+        341,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 112819,
+      "hash": "b85ec78f9a6ea19c328212956f4c0a6eb13952e5b73e2700b8bd5d747a2ae360"
+    },
+    {
+      "row": 2,
+      "col": 1,
+      "bounds": [
+        42,
+        90,
+        342,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 112149,
+      "hash": "d4c8a3bd18754d22c93e4d44699d1dd53f92a554fb44af8570e2cc2b4ad94c95"
+    },
+    {
+      "row": 2,
+      "col": 2,
+      "bounds": [
+        45,
+        87,
+        340,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 114376,
+      "hash": "dba1f8796326f9addc8b87f7d2bc4fcf0544ef5eb2a931cf024fb74bdc8336bd"
+    },
+    {
+      "row": 2,
+      "col": 3,
+      "bounds": [
+        44,
+        86,
+        342,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 112740,
+      "hash": "0e953d773d8c0a527c92b53eb7a6aba5f151b242fa56e947a1616cbc9ac8b64f"
+    },
+    {
+      "row": 2,
+      "col": 4,
+      "bounds": [
+        42,
+        87,
+        342,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 113432,
+      "hash": "d95e013ac1dd9949d42fe3263f0ed796c4ebcf70373b547b802c0a330b110b24"
+    },
+    {
+      "row": 2,
+      "col": 5,
+      "bounds": [
+        45,
+        87,
+        341,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 114273,
+      "hash": "4e230a2e75019cfa4668bcc9899cf3dd0efbde692a183058ded15ec7b2774444"
+    },
+    {
+      "row": 2,
+      "col": 6,
+      "bounds": [
+        47,
+        87,
+        339,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 114703,
+      "hash": "3640541e535b42572bd06b9daa035726ca6353aeb8efa151cb7664ff544472ba"
+    },
+    {
+      "row": 2,
+      "col": 7,
+      "bounds": [
+        47,
+        90,
+        338,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 115033,
+      "hash": "26cd535044fedc0173032f8733eac1b5b08c38168a0fa19a0e473324e87827ad"
+    },
+    {
+      "row": 3,
+      "col": 0,
+      "bounds": [
+        62,
+        44,
+        321,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 95929,
+      "hash": "566a84388fbcac8b27bb4fe0fb6490338cab19675defaf438f682ccb1eccc1b4"
+    },
+    {
+      "row": 3,
+      "col": 1,
+      "bounds": [
+        63,
+        44,
+        321,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 96866,
+      "hash": "9a434f3da5ab2bbc828d4591b3c3a48a73bc3496424dfd5545f721cb203d8521"
+    },
+    {
+      "row": 3,
+      "col": 2,
+      "bounds": [
+        58,
+        44,
+        326,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 96029,
+      "hash": "e1dc1d4f8949f3ecf5690fc55a9e2acdad18368a49e8464469f650a83522ef77"
+    },
+    {
+      "row": 3,
+      "col": 3,
+      "bounds": [
+        53,
+        46,
+        331,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 95938,
+      "hash": "43ee863e22b795b0dc38ea7241ee2d79b70bb70c2f2d902c8a41610fc463fcdd"
+    },
+    {
+      "row": 3,
+      "col": 4,
+      "bounds": [
+        54,
+        50,
+        329,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 95240,
+      "hash": "b83055fead6e8ea283b0b9f47df54d31b00ade2c7e79ed0a1fe23f1cb5a28081"
+    },
+    {
+      "row": 3,
+      "col": 5,
+      "bounds": [
+        50,
+        48,
+        332,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 95445,
+      "hash": "f8bc5ceb5efb917c5b003a73a20a7745c835a43076ee7c07a856c3eede7a093a"
+    },
+    {
+      "row": 3,
+      "col": 6,
+      "bounds": [
+        49,
+        50,
+        335,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 95882,
+      "hash": "00489b165cffa7bc484dcd414e497e68708677aa125ddf7b0df5ceb141b7b6fd"
+    },
+    {
+      "row": 3,
+      "col": 7,
+      "bounds": [
+        65,
+        45,
+        319,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 100067,
+      "hash": "ff9a1f6e7432af93d4f5f85e79f29f455bcc78fd9552e7421ba98855ab3263a6"
+    },
+    {
+      "row": 4,
+      "col": 0,
+      "bounds": [
+        49,
+        61,
+        333,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 100336,
+      "hash": "a5acb57a4274f09e9b01fabc367034795e0948c3fcf18e9a62d6b3779f2953cc"
+    },
+    {
+      "row": 4,
+      "col": 1,
+      "bounds": [
+        50,
+        27,
+        333,
+        392
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 99951,
+      "hash": "9aa932427c2b9ad5603554c92feb1ddbaffa51f4e1b2b441778be557b585efd2"
+    },
+    {
+      "row": 4,
+      "col": 2,
+      "bounds": [
+        36,
+        29,
+        347,
+        373
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 99143,
+      "hash": "eec5f240710b0cc68000c7401924adcc4b1474edbfb7a23f112ba193d3596538"
+    },
+    {
+      "row": 4,
+      "col": 3,
+      "bounds": [
+        45,
+        5,
+        339,
+        380
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 97355,
+      "hash": "3324fcccfd7914e3b388de0fa8ef7dfeb3fa6127561b2c444df176f003fb2f79"
+    },
+    {
+      "row": 4,
+      "col": 4,
+      "bounds": [
+        48,
+        6,
+        336,
+        381
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 97512,
+      "hash": "b87be0c2c998745af820604797698b33c2aa5c1c49772d79fc7dc0aa60b3fe72"
+    },
+    {
+      "row": 4,
+      "col": 5,
+      "bounds": [
+        45,
+        31,
+        339,
+        378
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 99098,
+      "hash": "4106756db6875ed9eb50daa6f86016124fc218b7bb3dfd05b16e9e293213c572"
+    },
+    {
+      "row": 4,
+      "col": 6,
+      "bounds": [
+        50,
+        63,
+        335,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 98634,
+      "hash": "4224f63bd4dc12f2c14ec67384cb1f9f6790191ed71a8e99b87b9005f5a5443d"
+    },
+    {
+      "row": 4,
+      "col": 7,
+      "bounds": [
+        53,
+        69,
+        331,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103532,
+      "hash": "3b183abeed4cb8fdb82ddc3548f4dcf394917355723831d2a624af9b4a3bb14b"
+    },
+    {
+      "row": 5,
+      "col": 0,
+      "bounds": [
+        56,
+        96,
+        326,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 106761,
+      "hash": "d7408de390e07643d6a1fa93476bd40179b11efe288c182f50e2b87a0649297d"
+    },
+    {
+      "row": 5,
+      "col": 1,
+      "bounds": [
+        19,
+        174,
+        365,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 108025,
+      "hash": "cda7f2ef244d3e037a419af739a0d6cc2e0517e6e90ce1fec85d831875f4604e"
+    },
+    {
+      "row": 5,
+      "col": 2,
+      "bounds": [
+        43,
+        142,
+        340,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 107658,
+      "hash": "5be220edd1b0470e66c4389f1d095d7bf68d94a201518e9ca3a19cbd0679b417"
+    },
+    {
+      "row": 5,
+      "col": 3,
+      "bounds": [
+        47,
+        96,
+        336,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 106489,
+      "hash": "7cfcddc0610dc1763c25495c86e4c654f66ecced9aa7557193bde20e36bc81cd"
+    },
+    {
+      "row": 5,
+      "col": 4,
+      "bounds": [
+        61,
+        118,
+        321,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 109388,
+      "hash": "683b2aab85e24a3f9f7be3e5359b7788d7d396777e6b63a8110db17dee6513b7"
+    },
+    {
+      "row": 5,
+      "col": 5,
+      "bounds": [
+        43,
+        62,
+        341,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 92207,
+      "hash": "00deb3df047902e901f7d25fd57b3a9afef91c1cae5991162f39900e2657b656"
+    },
+    {
+      "row": 5,
+      "col": 6,
+      "bounds": [
+        60,
+        62,
+        324,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 102557,
+      "hash": "e71c9dd009ce7fd27f4805c5389603fdfb1ba65f09f8224890156ce4c5d821d1"
+    },
+    {
+      "row": 5,
+      "col": 7,
+      "bounds": [
+        62,
+        37,
+        322,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 98331,
+      "hash": "0438a85a85b092b0ce51df17f8f874054fc38a8d97c71b7a428dc9e3ce487b37"
+    },
+    {
+      "row": 6,
+      "col": 0,
+      "bounds": [
+        64,
+        50,
+        320,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 100748,
+      "hash": "a387ff717d4df4d083e08e7f836f3e53a7579822da14599ff644ea8c02d561e4"
+    },
+    {
+      "row": 6,
+      "col": 1,
+      "bounds": [
+        66,
+        71,
+        321,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 102375,
+      "hash": "f0b70a8dc6a71728e374f467bd1b873a8b8e17d1ba55a5a21bbc97b7033d9535"
+    },
+    {
+      "row": 6,
+      "col": 2,
+      "bounds": [
+        66,
+        47,
+        321,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 98987,
+      "hash": "5f81eabba7888015de654f842796f05237022a126314fcbf5d1fdc7262ee3a1c"
+    },
+    {
+      "row": 6,
+      "col": 3,
+      "bounds": [
+        69,
+        44,
+        316,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 100406,
+      "hash": "d06c966b08fe543b13940a2577332ae2bfb937f06668f3056c1bae3262307dcd"
+    },
+    {
+      "row": 6,
+      "col": 4,
+      "bounds": [
+        42,
+        98,
+        343,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 105169,
+      "hash": "fa7dee6972920468aa92526d860eefb56e59c2b8fd4c7afb7fe2ec06d56c6092"
+    },
+    {
+      "row": 6,
+      "col": 5,
+      "bounds": [
+        33,
+        191,
+        350,
+        397
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 117241,
+      "hash": "18da0de9fd4cdc32235b50d68978b650b63bf59c3d2c0f4e2e2916b3ae54140a"
+    },
+    {
+      "row": 6,
+      "col": 6,
+      "bounds": [
+        49,
+        103,
+        333,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 107120,
+      "hash": "e192904ad16229df3b83c1199123aed78b8f9c542bca97bad9a3f5f4aab5a9ef"
+    },
+    {
+      "row": 6,
+      "col": 7,
+      "bounds": [
+        70,
+        67,
+        314,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 105518,
+      "hash": "bd99683b34d6e5dcd49b6531cd923911a3fa12c53bef51a2b94acf12c2a1fb6d"
+    },
+    {
+      "row": 7,
+      "col": 0,
+      "bounds": [
+        48,
+        98,
+        337,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 102612,
+      "hash": "f61103dad6014cbfe70c4163a765b4a420bbaf29f2ca72bee9fa3292db5c057f"
+    },
+    {
+      "row": 7,
+      "col": 1,
+      "bounds": [
+        47,
+        98,
+        336,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 102624,
+      "hash": "87f135ffe714cd8a1a5814ab113decf3e415f39c015e9e7c94b63a0d046128bc"
+    },
+    {
+      "row": 7,
+      "col": 2,
+      "bounds": [
+        48,
+        101,
+        337,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 102984,
+      "hash": "087a64bbb8c1772e567946e408d9b37586405833eb1e595e273f06443d1ee1d0"
+    },
+    {
+      "row": 7,
+      "col": 3,
+      "bounds": [
+        47,
+        103,
+        337,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103243,
+      "hash": "3f4d9c54dfff525ec2dff0a96c6e05996b16134b1017eb8513d1a40a58d7e511"
+    },
+    {
+      "row": 7,
+      "col": 4,
+      "bounds": [
+        47,
+        99,
+        337,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 102905,
+      "hash": "2c9431c5248e57d21c71db79a627d1288130872f1326c0115621811d20e6b303"
+    },
+    {
+      "row": 7,
+      "col": 5,
+      "bounds": [
+        47,
+        100,
+        338,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103251,
+      "hash": "873b354d8c2e412e73913e018d44afd56cb17c053c23fc17729ea981e8d1ebed"
+    },
+    {
+      "row": 7,
+      "col": 6,
+      "bounds": [
+        49,
+        99,
+        336,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 102835,
+      "hash": "7b85f33e1ff612e250d7826c73209fc62ef7d9b8cd8b36458891693041a71981"
+    },
+    {
+      "row": 7,
+      "col": 7,
+      "bounds": [
+        57,
+        74,
+        328,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 102438,
+      "hash": "e688819c26b75bf04d6a0151a40f8b0bcfd44af79441e5d81101609e37c537e9"
+    },
+    {
+      "row": 8,
+      "col": 0,
+      "bounds": [
+        70,
+        62,
+        315,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 102457,
+      "hash": "22363574575529179b5f9e0456af41d9695971ecdc1058206ea3883263b86aee"
+    },
+    {
+      "row": 8,
+      "col": 1,
+      "bounds": [
+        57,
+        52,
+        329,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 98423,
+      "hash": "0235afe54e1de8f36e90561179be2832cf48a5f8aef5b94fcce26eded6d86353"
+    },
+    {
+      "row": 8,
+      "col": 2,
+      "bounds": [
+        68,
+        63,
+        316,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103306,
+      "hash": "6248db575d0727cba8309e540cc629414c5670bcfb6f77ed7316813fc9cc817c"
+    },
+    {
+      "row": 8,
+      "col": 3,
+      "bounds": [
+        61,
+        62,
+        324,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 100308,
+      "hash": "00d0a711b87e2551c65818ff43f41b48f884ae7b8abff9629c03d97108ec6d8b"
+    },
+    {
+      "row": 8,
+      "col": 4,
+      "bounds": [
+        62,
+        62,
+        324,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 101528,
+      "hash": "765f1b844dd6a4135ba96e08f415c525343b63aa185d81a6d1e431e797d1c75e"
+    },
+    {
+      "row": 8,
+      "col": 5,
+      "bounds": [
+        51,
+        59,
+        335,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 96922,
+      "hash": "618b826fdf7d595d6c4d819061d88fe3834c8919d0a2655d1da89ad0e18d0953"
+    },
+    {
+      "row": 8,
+      "col": 6,
+      "bounds": [
+        58,
+        65,
+        324,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 101764,
+      "hash": "935f6e3bb11d679c4ad6b7dc1aeca520f00f055380d3243b9c0093ebb5a52a4c"
+    },
+    {
+      "row": 8,
+      "col": 7,
+      "bounds": [
+        72,
+        67,
+        312,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 105163,
+      "hash": "62dc394db7828b2347fed9f5f5f0403560c7a33724dc745a515319e9a25a0e68"
+    },
+    {
+      "row": 9,
+      "col": 0,
+      "bounds": [
+        58,
+        38,
+        326,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 96227,
+      "hash": "b55ea7a95d63c93154919d818037f03c87556e25880122307b448d012d3e3220"
+    },
+    {
+      "row": 9,
+      "col": 1,
+      "bounds": [
+        60,
+        39,
+        324,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 96601,
+      "hash": "17c92e74cef911de0c2995ad1dbdb4290aceda7f34a77879b10ff8fe5608089a"
+    },
+    {
+      "row": 9,
+      "col": 2,
+      "bounds": [
+        61,
+        40,
+        324,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 99432,
+      "hash": "20450e4b5a885eed5c6b108df97391d965142f50bafc843de8a07040383de7b3"
+    },
+    {
+      "row": 9,
+      "col": 3,
+      "bounds": [
+        73,
+        43,
+        312,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 101423,
+      "hash": "e3bf15ff575ab4684580af0da510e5f538e647723ca6cf1b2e248ab866ea35cd"
+    },
+    {
+      "row": 9,
+      "col": 4,
+      "bounds": [
+        66,
+        38,
+        319,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 103169,
+      "hash": "4025c09f1da332ca50c6c44731e53d11729eb5620de81cc04c128c119413f724"
+    },
+    {
+      "row": 9,
+      "col": 5,
+      "bounds": [
+        67,
+        41,
+        316,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 104179,
+      "hash": "7f3adbc2a655caf31ca007c1f8d8adaed007bbee3778b6ede45a1ef7f34fc174"
+    },
+    {
+      "row": 9,
+      "col": 6,
+      "bounds": [
+        61,
+        40,
+        323,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 104583,
+      "hash": "c72f576d77f7f17950ec4c6dc36d42aaf7b9ea0c1010c3597ec8f5d1558a4618"
+    },
+    {
+      "row": 9,
+      "col": 7,
+      "bounds": [
+        62,
+        45,
+        322,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 101467,
+      "hash": "f9c6f19da258becbceca8b8ec5d99b86e619f995fea19e835415197f33dc0f59"
+    },
+    {
+      "row": 10,
+      "col": 0,
+      "bounds": [
+        63,
+        51,
+        320,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 97885,
+      "hash": "26f367a85b1123089916f2baab0a79cb5ee618e91594df9cf43979a611cba085"
+    },
+    {
+      "row": 10,
+      "col": 1,
+      "bounds": [
+        19,
+        39,
+        366,
+        398
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 88257,
+      "hash": "b3bfa99f53f32b5e665de11f7314ed9a65cd0c68f5999c5d7a96b62cfb923cd7"
+    },
+    {
+      "row": 10,
+      "col": 2,
+      "bounds": [
+        21,
+        44,
+        361,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 95450,
+      "hash": "ea5a7dca9f034fcd945b230732a985f816a47d87192097eb227460a14d660fd2"
+    },
+    {
+      "row": 10,
+      "col": 3,
+      "bounds": [
+        43,
+        41,
+        341,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 98485,
+      "hash": "7985aace873b451feaf2d1343f60577c95be8496ab0ee9299b9c6ead028405fd"
+    },
+    {
+      "row": 10,
+      "col": 4,
+      "bounds": [
+        61,
+        41,
+        321,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 101531,
+      "hash": "af65f4321aa4c9741ed91dd9eef30c82655e6a0567b41886ef8ec2d5c69f3d5a"
+    },
+    {
+      "row": 10,
+      "col": 5,
+      "bounds": [
+        65,
+        48,
+        319,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 98089,
+      "hash": "b6669527046592f1283f58ff3eb76476bfd914e90c931bf53ee0abe20ae790fa"
+    },
+    {
+      "row": 10,
+      "col": 6,
+      "bounds": [
+        28,
+        20,
+        355,
+        400
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 93096,
+      "hash": "a8725c253ebbf3a0b72fb4ceff1a3172cbf4e676aec996ea915ed514436f968d"
+    },
+    {
+      "row": 10,
+      "col": 7,
+      "bounds": [
+        63,
+        48,
+        321,
+        399
+      ],
+      "edge_contact": false,
+      "transparent_pixels": 98358,
+      "hash": "876c4aac4ba5cb05fe1c2474b8e3e030e8571d499dddd99169828af4c03a2afb"
+    }
+  ],
+  "limits": "Pixel checks do not prove anatomical or directional correctness. See visual review."
+}

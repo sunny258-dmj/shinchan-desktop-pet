@@ -1,0 +1,25 @@
+test_assistant_stream_not_user_prompt (test_pet.EventTests.test_assistant_stream_not_user_prompt) ... ok
+test_more_than_one_page_same_timestamp (test_pet.EventTests.test_more_than_one_page_same_timestamp) ... ok
+test_non_tool_clears_old_label (test_pet.EventTests.test_non_tool_clears_old_label) ... ok
+test_same_timestamp_across_polls (test_pet.EventTests.test_same_timestamp_across_polls) ... ok
+test_tool_failure_update (test_pet.EventTests.test_tool_failure_update) ... ok
+test_all_frames_have_clear_edges (test_pet.GuiTests.test_all_frames_have_clear_edges) ... ok
+test_bubbles_fit_screen_without_overlap (test_pet.GuiTests.test_bubbles_fit_screen_without_overlap) ... ok
+test_done_does_not_restart_celebration (test_pet.GuiTests.test_done_does_not_restart_celebration) ... ok
+test_empty_snippet_clears_previous (test_pet.GuiTests.test_empty_snippet_clears_previous) ... ok
+test_hide_also_hides_bubble (test_pet.GuiTests.test_hide_also_hides_bubble) ... ok
+test_idle_poll_does_not_cancel_mouse_look (test_pet.GuiTests.test_idle_poll_does_not_cancel_mouse_look) ... ok
+test_invalid_atlas_rejected (test_pet.GuiTests.test_invalid_atlas_rejected) ... ok
+test_look_directions_use_face_not_back (test_pet.GuiTests.test_look_directions_use_face_not_back) ... ok
+test_progress_tasks_deleted (test_pet.GuiTests.test_progress_tasks_deleted) ... ok
+test_progress_without_state_file (test_pet.GuiTests.test_progress_without_state_file) ... ok
+test_same_state_message_updates (test_pet.GuiTests.test_same_state_message_updates) ... ok
+test_single_instance_lock_released (test_pet.GuiTests.test_single_instance_lock_released) ... ok
+test_state_tasks_consumed (test_pet.GuiTests.test_state_tasks_consumed) ... ok
+test_step_only_updates (test_pet.GuiTests.test_step_only_updates) ... ok
+test_task_values_are_normalized (test_pet.GuiTests.test_task_values_are_normalized) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 6.496s
+
+OK
