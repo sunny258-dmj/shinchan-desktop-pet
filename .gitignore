@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+
+# V4 visual QA outputs are generated locally
+qa/*
+!qa/README.md
+
+# Common local/runtime artifacts
+*.log
+.DS_Store
+Thumbs.db
