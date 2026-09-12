@@ -1,0 +1,74 @@
+name: Package V4 Windows Installer
+
+on:
+  push:
+    branches:
+      - redesign/rich-ui-motion-v4
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout latest V4
+        uses: actions/checkout@v4
+
+      - name: Build clean install package
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dist = Join-Path $PWD 'dist\蜡笔小新桌宠-V4'
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+
+          Copy-Item README.md, SKILL.md, config.json, avatar.png -Destination $dist -Force
+          Copy-Item assets -Destination $dist -Recurse -Force
+          Copy-Item scripts -Destination $dist -Recurse -Force
+
+          Get-ChildItem $dist -Recurse -Directory -Filter '__pycache__' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          Get-ChildItem $dist -Recurse -Include '*.pyc','*.pyo','*.log' -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
+          @'
+          $ErrorActionPreference = 'Stop'
+          $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+          Write-Host '蜡笔小新桌宠 V4 - 一键安装并启动' -ForegroundColor Cyan
+          Write-Host '正在检查运行环境并安装必要依赖...' -ForegroundColor Gray
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\install-env.ps1')
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host '安装失败，请查看上面的错误信息。' -ForegroundColor Red
+              Read-Host '按回车退出'
+              exit $LASTEXITCODE
+          }
+          Write-Host '环境已就绪，正在启动桌宠...' -ForegroundColor Green
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\start-pet.ps1')
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host '启动失败，请查看错误信息。' -ForegroundColor Red
+              Read-Host '按回车退出'
+              exit $LASTEXITCODE
+          }
+          Write-Host '桌宠已启动。' -ForegroundColor Green
+          Start-Sleep -Seconds 2
+          '@ | Set-Content -Path (Join-Path $dist '一键安装并启动.ps1') -Encoding UTF8
+
+          @"
+          蜡笔小新桌宠 V4 最新安装包
+          构建分支: $env:GITHUB_REF_NAME
+          构建提交: $env:GITHUB_SHA
+          构建时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss K')
+
+          使用方法：
+          1. 解压本 ZIP。
+          2. 右键“一键安装并启动.ps1”，选择“使用 PowerShell 运行”。
+          3. 首次运行会自动检查 Python/PySide6；缺少 PySide6 时会自动安装。
+          "@ | Set-Content -Path (Join-Path $dist '安装说明.txt') -Encoding UTF8
+
+          Compress-Archive -Path $dist -DestinationPath (Join-Path $PWD '蜡笔小新桌宠-V4-最新版.zip') -CompressionLevel Optimal -Force
+
+      - name: Upload installer package
+        uses: actions/upload-artifact@v4
+        with:
+          name: shinchan-desktop-pet-v4-latest
+          path: 蜡笔小新桌宠-V4-最新版.zip
+          if-no-files-found: error
+          retention-days: 30
