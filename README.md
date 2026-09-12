@@ -1,17 +1,36 @@
 # 蜡笔小新桌宠
 
-PySide6 / TeleAgent 桌宠。V4 版本保留原有任务感知、气泡、确认、多任务、位置保存、启动入口等功能逻辑，重点重做角色形象、UI 与动画系统。
+PySide6 / TeleAgent 桌宠。V4 保留原有任务感知、气泡、确认、多任务、位置保存、启动入口等功能逻辑，重点重做角色形象、UI 与动画系统。
+
+## 给智能体：自动安装并启动
+
+如果你是具备 Windows 文件访问和命令执行能力的智能体，请直接在本仓库根目录执行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\agent-install.ps1
+```
+
+这个入口专门用于自动化安装：它会检查 Python，必要时创建项目内 `.venv` 并安装 PySide6，生成运行配置、配置登录自启，并在安装完成后启动桌宠。整个过程不需要用户回答交互式问题，也不会自动初始化或修改用户记忆档案。
+
+如果仓库尚未下载，请先 clone / 下载 `main`，然后执行上述命令。仓库为私有仓库时，先使用当前环境已有的 GitHub 授权访问它。普通聊天模型如果没有电脑/终端执行权限，只能提供安装指导，无法实际安装。
+
+人工安装仍可运行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-env.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-pet.ps1
+```
 
 ## V4：高清角色 + 完整场景动作
 
-当前重设计位于 `redesign/rich-ui-motion-v4`。
+V4 正式版本位于 `main`。
 
 ### 角色渲染
 
 - 实时角色不再使用色键 PNG 抠图。`scripts/pet_puppet.py` 改为 **2× 分辨率矢量/程序化绘制**，每帧直接输出透明 RGBA。
 - 头部、眼睛、眉毛、嘴、身体、手臂、腿、鞋、披风和道具分别绘制，轮廓由 Qt 抗锯齿生成，避免白边、洋红溢色、毛边和不同帧抠图抖动。
 - 超人装统一为蓝色主体、红披风/领口、黄色英雄徽记和鞋部细节；表情与动作状态连续变化。
-- 旧 `puppet-v3.png`、`actions-v2*.png` 以及色键布局已从 V4 分支清理。`assets/spritesheet.png` 暂时只保留给旧启动/检查接口兼容，实时动画不再依赖它。
+- 旧 `puppet-v3.png`、`actions-v2*.png` 以及色键布局已从 V4 清理。`assets/spritesheet.png` 暂时只保留给旧启动/检查接口兼容，实时动画不再依赖它。
 
 ### 动作系统
 
@@ -97,4 +116,5 @@ python -X utf8 -B tests\launcher_smoke.py
 - `scripts/pet_animation.py`：旧接口兼容层，现在从矢量角色采样，不再加载色键动作图。
 - `scripts/pet_events.py`：TeleAgent 会话与任务状态感知。
 - `scripts/pet_confirmation_ui.py` / `pet_confirmation.py`：气泡确认交互。
+- `scripts/agent-install.ps1`：智能体/自动化无人值守安装入口。
 - `tests/`：回归和视觉导出工具。
