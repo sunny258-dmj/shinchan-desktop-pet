@@ -1,4 +1,8 @@
-"""Clickable confirmation cards; detail review never implies consent."""
+"""Clickable confirmation cards; detail review never implies consent.
+
+V4 keeps the original confirmation semantics but uses the same airy pastel-card
+visual language as the redesigned desktop pet bubbles.
+"""
 import time
 from PySide6.QtCore import QObject, QTimer, Qt
 from PySide6.QtGui import QFont
@@ -8,7 +12,6 @@ from PySide6.QtWidgets import (QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabe
 from pet_confirmation import ConfirmationStore
 from pet_config import ui_scale
 
-# 与主程序一致的 UI 缩放（config.json 的 ui.scale，默认 0.8）
 _UI = ui_scale()
 
 
@@ -47,40 +50,112 @@ class ReviewDialog(QDialog):
     def __init__(self, controller, data):
         super().__init__(controller.pet, Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
         self.controller, self.data = controller, data
-        self.setWindowTitle("我看看 · 确认选项")
+        self.setWindowTitle("小新 · 我自己确认")
         self.setFont(_ui_font(10))
-        self.setStyleSheet(f"QDialog{{background:#fffdf7;color:#17304f;}}"
-                           f"QPushButton{{padding:{_ui_px(9)}px {_ui_px(16)}px;border:1px solid #c9d1db;border-radius:{_ui_px(9)}px;}}"
-                           f"QPushButton:enabled{{background:#fff;}}"
-                           f"QRadioButton{{padding:{_ui_px(8)}px 0;}} QPlainTextEdit{{background:#fff;}}")
+        radius = _ui_px(14)
+        self.setStyleSheet(f"""
+            QDialog {{
+                background: #f4fbff;
+                color: #26364a;
+            }}
+            QLabel {{
+                color: #26364a;
+                background: transparent;
+            }}
+            QScrollArea {{
+                border: {_ui_px(1)}px solid #d7eaf7;
+                border-radius: {radius}px;
+                background: #ffffff;
+            }}
+            QScrollArea > QWidget > QWidget {{
+                background: #ffffff;
+            }}
+            QRadioButton {{
+                color: #26364a;
+                padding: {_ui_px(8)}px 0;
+                spacing: {_ui_px(8)}px;
+            }}
+            QRadioButton::indicator {{
+                width: {_ui_px(17)}px;
+                height: {_ui_px(17)}px;
+            }}
+            QPlainTextEdit {{
+                background: #ffffff;
+                color: #26364a;
+                border: {_ui_px(1)}px solid #c9e0ef;
+                border-radius: {_ui_px(11)}px;
+                padding: {_ui_px(8)}px;
+                selection-background-color: #bfe4ff;
+            }}
+            QPushButton {{
+                min-height: {_ui_px(34)}px;
+                padding: {_ui_px(7)}px {_ui_px(16)}px;
+                border: {_ui_px(1)}px solid #c7ddec;
+                border-radius: {_ui_px(11)}px;
+                background: #ffffff;
+                color: #36536d;
+            }}
+            QPushButton:hover {{
+                background: #eaf6ff;
+                border-color: #98cbea;
+            }}
+            QPushButton:disabled {{
+                color: #91a5b6;
+                background: #edf3f7;
+                border-color: #dce7ee;
+            }}
+        """)
+
         request = data["request"]
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(_ui_px(20), _ui_px(16), _ui_px(20), _ui_px(16))
-        layout.addWidget(plain_label(request["title"]))
+        layout.setContentsMargins(_ui_px(22), _ui_px(18), _ui_px(22), _ui_px(18))
+        layout.setSpacing(_ui_px(11))
+
+        title = plain_label(request["title"])
+        title.setFont(_ui_font(13, QFont.Weight.Bold))
+        title.setStyleSheet("color:#1f4770;")
+        layout.addWidget(title)
+
+        question = plain_label(request["question"])
+        question.setFont(_ui_font(10))
+        question.setStyleSheet(
+            f"background:#ffffff;border:{_ui_px(1)}px solid #d9ebf7;"
+            f"border-radius:{_ui_px(12)}px;padding:{_ui_px(10)}px;color:#3d5870;")
+        layout.addWidget(question)
+
         area = QScrollArea()
         area.setWidgetResizable(True)
-        area.setStyleSheet("QScrollArea{border:0;background:#fffdf7;} QScrollArea>QWidget>QWidget{background:#fffdf7;}")
         content = QWidget()
         body = QVBoxLayout(content)
-        body.addWidget(plain_label(request["question"]))
+        body.setContentsMargins(_ui_px(13), _ui_px(10), _ui_px(13), _ui_px(10))
+        body.setSpacing(_ui_px(5))
         self.group = QButtonGroup(self)
         self.choices = []
+
         for index, option in enumerate(request["options"]):
             row = QHBoxLayout()
+            row.setContentsMargins(_ui_px(6), _ui_px(4), _ui_px(6), _ui_px(4))
+            row.setSpacing(_ui_px(8))
             radio = QRadioButton()
             radio.setAccessibleName(option["label"])
             self.group.addButton(radio, index)
             self.choices.append((radio, option["id"]))
             row.addWidget(radio, 0, Qt.AlignmentFlag.AlignTop)
             words = QVBoxLayout()
-            title = option["label"] + ("（推荐）" if option["id"] == request["recommended"] else "")
-            words.addWidget(plain_label(title, radio))
+            words.setSpacing(_ui_px(2))
+            recommended = option["id"] == request["recommended"]
+            option_title = option["label"] + ("  ·  推荐" if recommended else "")
+            option_label = plain_label(option_title, radio)
+            option_label.setFont(_ui_font(10, QFont.Weight.Bold if recommended else QFont.Weight.Medium))
+            option_label.setStyleSheet("color:#177cc1;" if recommended else "color:#26364a;")
+            words.addWidget(option_label)
             if option["description"]:
                 description = plain_label(option["description"], radio)
-                description.setStyleSheet("color:#59677a;")
+                description.setStyleSheet("color:#698096;")
                 words.addWidget(description)
             row.addLayout(words, 1)
             body.addLayout(row)
+
         self.custom = None
         if request["allow_custom"]:
             radio = QRadioButton("我有其他想法")
@@ -92,18 +167,29 @@ class ReviewDialog(QDialog):
             self.custom.setMaximumHeight(_ui_px(100))
             self.custom.textChanged.connect(self._selection_changed)
             body.addWidget(self.custom)
+
         body.addStretch()
         area.setWidget(content)
         layout.addWidget(area, 1)
+
         self.error_label = plain_label("")
-        self.error_label.setStyleSheet("color:#b42318;")
+        self.error_label.setStyleSheet("color:#d53b4f;")
         layout.addWidget(self.error_label)
+
         row = QHBoxLayout()
         later = QPushButton("先不选")
         later.clicked.connect(self.close)
         self.submit = QPushButton("确认选择")
         self.submit.setEnabled(False)
-        # Enter/Return must not silently submit the first or recommended option.
+        self.submit.setStyleSheet(f"""
+            QPushButton {{
+                background:#1687ff;color:white;border:{_ui_px(1)}px solid #0875e9;
+                border-radius:{_ui_px(11)}px;padding:{_ui_px(8)}px {_ui_px(18)}px;
+                font-weight:600;
+            }}
+            QPushButton:hover {{ background:#0f79e6; }}
+            QPushButton:disabled {{ background:#cddce8;color:#f6f9fb;border-color:#cddce8; }}
+        """)
         for button in (later, self.submit):
             button.setAutoDefault(False)
             button.setDefault(False)
@@ -113,8 +199,10 @@ class ReviewDialog(QDialog):
         row.addWidget(self.submit)
         layout.addLayout(row)
         self.group.buttonToggled.connect(self._selection_changed)
+
         screen = controller.pet.screen().availableGeometry()
-        self.resize(min(int(490 * _UI), screen.width() - 32), min(int(460 * _UI), screen.height() - 64))
+        self.resize(min(int(500 * _UI), screen.width() - 32),
+                    min(int(480 * _UI), screen.height() - 64))
         self.move(max(screen.left(), min(controller.pet.x() - self.width(), screen.right() - self.width())),
                   max(screen.top(), min(controller.pet.y() - self.height(), screen.bottom() - self.height())))
 
@@ -168,27 +256,31 @@ class ConfirmationController(QObject):
         self.bubble.setWindowTitle("小新 · 等你确认")
         self.bubble.setFont(_ui_font(10))
         row = QHBoxLayout()
+        row.setSpacing(_ui_px(8))
         self.recommended = QPushButton("听你的\n按照推荐来")
         self.review = QPushButton("我看看\n我自己确认")
         self.recommended.setAccessibleName("听你的，按照推荐来")
         self.review.setAccessibleName("我看看，我自己确认")
         self.recommended.setStyleSheet(
-            f"QPushButton{{background:#f8c94e;color:#342811;border:1px solid #dfa52f;"
-            f"border-radius:{_ui_px(10)}px;padding:{_ui_px(7)}px;}}"
-            f"QPushButton:hover{{background:#ffdb74;}} "
-            f"QPushButton:disabled{{background:#edf0f3;color:#8a949f;border-color:#d9dfe5;}}")
-        self.review.setStyleSheet(f"QPushButton{{background:#fff;color:#17304f;border:1px solid #c7d2df;"
-                                  f"border-radius:{_ui_px(10)}px;padding:{_ui_px(7)}px;}}"
-                                  f"QPushButton:hover{{background:#edf5ff;}}")
+            f"QPushButton{{background:#fff0a8;color:#604817;border:{_ui_px(1)}px solid #edcf65;"
+            f"border-radius:{_ui_px(12)}px;padding:{_ui_px(8)}px;font-weight:600;}}"
+            f"QPushButton:hover{{background:#ffe77c;border-color:#ddb845;}} "
+            f"QPushButton:disabled{{background:#edf3f7;color:#91a5b6;border-color:#dce7ee;}}")
+        self.review.setStyleSheet(
+            f"QPushButton{{background:#eef8ff;color:#23618f;border:{_ui_px(1)}px solid #b9ddf4;"
+            f"border-radius:{_ui_px(12)}px;padding:{_ui_px(8)}px;font-weight:600;}}"
+            f"QPushButton:hover{{background:#dff2ff;border-color:#8fc9ed;}}")
         for button in (self.recommended, self.review):
             button.setCursor(Qt.CursorShape.PointingHandCursor)
-            button.setMinimumHeight(_ui_px(54))
+            button.setMinimumHeight(_ui_px(56))
             row.addWidget(button, 1)
         self.recommended.clicked.connect(self._recommend)
         self.review.clicked.connect(self._review)
         self.bubble._card_layout.addLayout(row)
         self.next_button = QPushButton("查看下一项")
-        self.next_button.setStyleSheet(f"background:transparent;color:#536a87;border:0;padding:{_ui_px(2)}px;")
+        self.next_button.setStyleSheet(
+            f"QPushButton{{background:transparent;color:#5c7893;border:0;padding:{_ui_px(3)}px;}}"
+            f"QPushButton:hover{{color:#1687ff;}}")
         self.next_button.clicked.connect(self._next)
         self.bubble._card_layout.addWidget(self.next_button)
 
@@ -229,14 +321,15 @@ class ConfirmationController(QObject):
             body = short(request["question"], 80) + "\n" + (
                 "推荐：" + short(option["label"], 44) if option else "还没有推荐方案，请点「我看看」自己选")
             self.bubble._last_key = None
-            self.bubble.set_structured("等你确认", "#d99a20", f"{index + 1}/{len(self.pending)}" if len(self.pending) > 1 else "",
+            self.bubble.set_structured("等你确认", "#e0a22a",
+                                       f"{index + 1}/{len(self.pending)}" if len(self.pending) > 1 else "",
                                        short(request["title"], 24) + "\n" + body,
                                        short(request["title"], 24) + "\n" + body)
             self.bubble.snippet_label.setToolTip(request["title"] + "\n" + request["question"])
             self.recommended.setToolTip("提交：" + option["label"] if option else "未指定推荐方案，请自行选择")
             self.next_button.setVisible(len(self.pending) > 1)
             self.bubble._apply_size(self.bubble.height() - self.bubble.M_T - self.bubble.M_B
-                                    + _ui_px(70) + (_ui_px(28) if len(self.pending) > 1 else 0))
+                                    + _ui_px(72) + (_ui_px(28) if len(self.pending) > 1 else 0))
         self.recommended.setEnabled(request["recommended"] is not None and time.monotonic() >= self._not_before)
         if self.pet._bubble:
             self.pet._bubble.hide()
