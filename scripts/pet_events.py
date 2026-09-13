@@ -27,7 +27,7 @@ from typing import Optional
 
 PRIORITY = {
     "failed": 60, "waiting": 50, "working": 40,
-    "review": 30, "thinking": 20, "done": 10, "idle": 0,
+    "review": 30, "thinking": 20, "cancelled": 15, "done": 10, "idle": 0,
 }
 
 # 状态存活时长（秒）。TeleAgent 会话由 session-status.json 的 running 兜底，
@@ -35,7 +35,7 @@ PRIORITY = {
 # 只有会话真正结束后（session-status 无 running）才会被 sweep 清理。
 TTL = {
     "thinking": 1800, "working": 3600, "review": 1800,
-    "waiting": 7200, "done": 8, "failed": 30,
+    "waiting": 7200, "cancelled": 8, "done": 8, "failed": 30,
 }
 
 DECAY_TO = {k: "idle" for k in TTL}
@@ -113,12 +113,14 @@ TOOL_LABEL = {
 
 STATE_LABEL = {
     "thinking": "思考中", "working": "执行中", "review": "检查中",
-    "waiting": "等你确认", "done": "已完成", "failed": "出错了", "idle": "",
+    "waiting": "等你确认", "cancelled": "已手动停止", "done": "已完成",
+    "failed": "出错了", "idle": "",
 }
 
 STATE_ANIM = {
     "thinking": "thinking", "working": "running", "review": "review",
-    "waiting": "waiting", "done": "idle", "failed": "failed", "idle": "idle",
+    "waiting": "waiting", "cancelled": "idle", "done": "idle",
+    "failed": "failed", "idle": "idle",
 }
 
 
@@ -348,6 +350,8 @@ def classify(event: str, ev: dict) -> Optional[str]:
         return "failed"
     if event == "Waiting":
         return "waiting"
+    if event == "Interrupted":
+        return "cancelled"
     if event == "Stop":
         return "waiting" if ev.get("ends_with_question") else "done"
     if event == "PostToolUse":
@@ -711,9 +715,13 @@ class TranscriptWatcher:
             event = None
             if status == "running" and old != "running":
                 event = "Reasoning"
+            # 暂停/需要处理是 TeleAgent 会话控制状态，不代表桌宠的确认协议。
+            # 真正需要确认只来自 question 工具或 confirmations 文件。
             elif status in ("paused", "needs_intervention") and old is not None:
-                event = "Waiting"
-            elif status == "completed" and old in ("running", "paused", "needs_intervention"):
+                event = "Interrupted"
+            elif status == "completed" and old in ("paused", "needs_intervention"):
+                event = "Interrupted"
+            elif status == "completed" and old == "running":
                 event = "Stop"
             if event and not self._probe_sys_sid(sid):
                 result.append({"event": event, "session_id": sid, "ts": int(time.time()*1000)})

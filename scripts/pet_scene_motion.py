@@ -12,7 +12,8 @@ BASE = dict(x=0., y=0., lean=0., head=0., turn=0.,
             lx=-64., ly=317., rx=64., ry=317.,
             flx=-28., fly=378., frx=28., fry=378.,
             cape=0., happy=0., puzzled=0., laptop=0., board=0., pencil=0.,
-            board_angle=0., board_y=0., thumb=0., blink=0., eye_x=0., eye_y=0.)
+            board_angle=0., board_y=0., thumb=0., blink=0., eye_x=0., eye_y=0.,
+            idea=0., question=0., tear=0., heart=0., cup=0., surprise=0.)
 
 
 def track(*keys):
@@ -65,8 +66,21 @@ SCENES = {
         (14.3, dict(laptop=1, lx=-24, ly=346, rx=20, ry=344, lean=5, head=4)),
         (15.2, dict(lx=-36, ly=300, rx=44, ry=296, happy=.35)),
         (16.4, dict(lx=-48, ly=288, rx=50, ry=287, happy=.55, head=-4)),
-        (17.8, {}),
-        (18.6, {})
+        (17.8, dict(laptop=1, lx=-26, ly=350, rx=26, ry=350)),
+        (23.0, dict(laptop=1, lx=-26, ly=350, rx=26, ry=350, head=4)),
+        (24.0, dict(board=1, pencil=1, lx=-40, ly=300, rx=20, ry=281)),
+        (28.0, dict(board=1, pencil=1, lx=-40, ly=300, rx=20, ry=281, head=-5)),
+        (29.0, dict(cup=1, rx=68, ry=280)),
+        (30.0, dict(cup=1, rx=55, ry=240, head=-5)),
+        (32.0, dict(cup=1, rx=55, ry=240, head=-5, happy=.3)),
+        (33.0, dict(cup=1, rx=68, ry=280)),
+        (34.0, {}),
+        (35.0, dict(lx=-96, ly=209, rx=96, ry=209, y=-4, happy=.8, cape=12)),
+        (37.0, dict(lx=-90, ly=219, rx=90, ry=219, head=6, happy=.8)),
+        (38.0, {}),
+        (39.0, dict(laptop=1, lx=-26, ly=350, rx=26, ry=350)),
+        (44.0, dict(laptop=1, lx=-26, ly=350, rx=26, ry=350, head=-3)),
+        (45.0, {})
     ),
     'thinking': track(
         (0.0, {}),
@@ -130,7 +144,7 @@ SCENES = {
         (6.1, dict(lx=-88, ly=273, rx=88, ry=273, head=7, puzzled=1.0)),
         (7.3, dict(lx=-98, ly=268, rx=98, ry=268, head=6, puzzled=1.0)),
         (8.6, dict(lx=-54, ly=305, rx=56, ry=305, head=-5, puzzled=.8)),
-        (9.6, dict(lx=-35, ly=298, rx=70, ry=290, head=-3, puzzled=.8)),
+        (9.6, dict(y=16, lx=-35, ly=328, rx=35, ry=328, head=10, puzzled=.8, tear=1)),
         (10.8, dict(lx=-44, ly=306, rx=92, ry=236, head=2, thumb=.6, puzzled=.45)),
         (12.0, dict(lx=-52, ly=311, rx=74, ry=278, head=-2, puzzled=.18)),
         (13.2, dict(happy=.08, puzzled=.05)),
@@ -202,6 +216,10 @@ for direction in ('running-left', 'running-right'):
     )
 
 
+SCENES['walking-left'] = SCENES['running-left']
+SCENES['walking-right'] = SCENES['running-right']
+
+
 def duration(state):
     return SCENES[state][-1][0]
 
@@ -234,20 +252,26 @@ def sample(state, elapsed, gaze=(0., 0.)):
             pose['rx'] += 3.0 * math.sin(t * 8.0)
             pose['ry'] += 2.0 * math.sin(t * 16.0)
     if state == 'thinking':
+        pose['idea'] = max(0., 1 - abs(t - 10.2) / 1.7)
         pose['head'] += 1.5 * math.sin(t * 2.8)
         pose['eye_y'] += -.07 * abs(math.sin(t * 1.6))
     if state == 'review' and pose['pencil'] > .1:
         pose['rx'] += 4.0 * math.sin(t * 8.0)
         pose['ry'] += 2.6 * math.sin(t * 16.0)
     if state == 'waiting':
+        pose['question'] = max(0., 1 - abs(t - 14.8) / 1.1)
+        pose['surprise'] = pose['question']
         pose['head'] += .8 * math.sin(t * 2.2)
         if 12.2 < t < 14.2:
             pose['fly'] += 3.2 * math.sin((t - 12.2) * math.pi * 3.0)
             pose['fry'] += 3.2 * math.sin((t - 12.2) * math.pi * 3.0 + math.pi)
     if state == 'failed':
+        pose['question'] = max(0., 1 - abs(t - 4.2) / 2.3)
+        pose['surprise'] = max(0., 1 - abs(t - 1.6) / 1.5)
         pose['head'] += 1.2 * math.sin(t * 1.8)
         pose['puzzled'] = max(pose['puzzled'], .15 * max(0., math.sin(t * 3.2)))
     if state in ('jumping', 'hero-celebrate'):
+        pose['heart'] = max(0., 1 - abs(t - (3.1 if state == 'jumping' else 4.4)) / 1.1)
         pose['cape'] += 2.8 * math.sin(t * 6.0)
     if state.startswith('running-'):
         envelope = max(0, min(1, (t - .55) / .35, (5.15 - t) / .45))
@@ -274,10 +298,16 @@ def sample(state, elapsed, gaze=(0., 0.)):
 
     blink_phase = t % 4.1
     pose['blink'] = max(0, 1 - abs(blink_phase - 3.2) / .095)
+    # Keep reference-atlas selection separate from the continuous legacy rig.
+    pose['_state'] = state
+    pose['_elapsed'] = max(0., elapsed)
+    pose['_gaze'] = gaze
     return pose
 
 
 def mix(a, b, fraction):
     f = max(0., min(1., fraction))
     f = f * f * (3 - 2 * f)
-    return {k: a[k] + (b[k] - a[k]) * f for k in BASE}
+    result = {k: a[k] + (b[k] - a[k]) * f for k in BASE}
+    result.update({k: v for k, v in b.items() if k.startswith('_')})
+    return result

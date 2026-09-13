@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-蜡笔小新桌宠 V4 — 智能体/自动化无人值守安装入口。
+蜡笔小新桌宠 — 智能体/自动化无人值守安装入口。
 
 用途：
 - 自动调用 install-env.ps1 完成环境检查与依赖安装；
@@ -28,13 +28,17 @@ if (-not (Test-Path -LiteralPath $Start)) {
     throw "缺少启动脚本: $Start"
 }
 
-Write-Host '[agent-install] 正在无人值守安装蜡笔小新桌宠 V4…' -ForegroundColor Cyan
+Write-Host '[agent-install] 正在无人值守安装蜡笔小新桌宠…' -ForegroundColor Cyan
 
 $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $Install)
 if ($NoAutostart) { $args += '-NoAutostart' }
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
-$psi.FileName = 'powershell.exe'
+# 优先 pwsh（更高效），没有才降级 powershell.exe（5.1 兼容，install-env.ps1 本身两者都支持）
+$shell = 'powershell.exe'
+$pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+if ($pwshCmd) { $shell = $pwshCmd.Source }
+$psi.FileName = $shell
 $psi.UseShellExecute = $false
 $psi.RedirectStandardInput = $true
 $psi.RedirectStandardOutput = $false

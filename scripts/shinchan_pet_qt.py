@@ -33,8 +33,9 @@ from pet_config import (
 from pet_runtime import InstanceLock
 from pet_confirmation_ui import ConfirmationController
 from pet_scene_motion import SCENES, BASE, sample as sample_scene, duration as scene_duration, mix as mix_pose
-from pet_puppet import Puppet
-from pet_bubble_style import palette as bubble_palette, decorate as decorate_bubble, outline as bubble_outline
+from pet_reference_renderer import Puppet, playback_duration
+from pet_bubble_style import palette as bubble_palette
+from pet_art_bubbles import draw_bubble, content_theme, INSETS, artwork
 from pet_events import (
     SessionTracker, TranscriptWatcher, STATE_ANIM, STATE_LABEL, TOOL_LABEL as TOOL_LABEL_PET
 )
@@ -64,7 +65,7 @@ ATLAS_COLS = 8
 ATLAS_ROWS = 11
 FRAME_W = 192
 FRAME_H = 208
-DISPLAY_SCALE = 1.0  # 显示缩放
+DISPLAY_SCALE = 1.25  # 角色整体放大，气泡仍按内容独立计算尺寸
 
 # 全局 UI 缩放（气泡/字体/桌宠尺寸），config.json 的 ui.scale 可调（0.5~1.2，默认 0.8）
 UI_SCALE = ui_scale()
@@ -85,7 +86,7 @@ def _ui_px(value: float) -> int:
     return max(1, int(round(value * UI_SCALE)))
 
 ANIMATIONS = {
-    name: {'row': i, 'durations': [1000 / 30] * round(scene_duration(name) * 30), 'source': 'v3'}
+    name: {'row': i, 'durations': [1000 / 30] * round(playback_duration(name) * 30), 'source': 'dinosaur-v8'}
     for i, name in enumerate(SCENES)
 }
 
@@ -99,13 +100,15 @@ STATE_MESSAGES = {
     "jumping": "完成啦，开心跳一下！",
     "running-right": "正在赶去处理任务…",
     "running-left": "正在赶去处理任务…",
+    "walking-left": "散步一下～",
+    "walking-right": "散步一下～",
     "look": "我在看着你哦。",
     "thinking": "正在思考…",
     "hero-celebrate": "任务完成！",
 }
 
 VALID_STATES = {"idle", "running", "review", "waiting", "failed",
-                "waving", "jumping", "running-right", "running-left", "look", "thinking", "hero-celebrate"}
+                "waving", "jumping", "running-right", "running-left", "walking-left", "walking-right", "look", "thinking", "hero-celebrate"}
 
 # 任务心跳超时（秒）
 TASK_STALE_SEC = 15
@@ -199,7 +202,7 @@ STATE_UI_COLORS = {
     "running": "#1687ff", "working": "#1687ff",
     "thinking": "#8a5cf6", "review": "#19b978",
     "waiting": "#f4a623", "completed": "#35c759", "done": "#35c759",
-    "failed": "#ff4d5f", "pending": "#8fa8c4", "idle": "#78a8d8",
+    "cancelled": "#8fa8c4", "failed": "#ff4d5f", "pending": "#8fa8c4", "idle": "#78a8d8",
 }
 
 
@@ -218,6 +221,7 @@ class BubbleCard(QWidget):
         self.tail_up = False      # True = 气泡在桌宠下方，尾巴朝上
         self.show_tail = True
         self._accent = "#3b82f6"
+        self.art_theme = None
 
     def set_accent(self, color: str):
         if color != self._accent:
@@ -228,24 +232,8 @@ class BubbleCard(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         w, h = float(self.width()), float(self.height())
-        theme, paper, tint, _ = bubble_palette(self._accent)
-        path, T, B = bubble_outline(w, h, UI_SCALE, theme, self.tail_x,
-                                   self.tail_up, self.show_tail)
-        accent = QColor(self._accent)
-        light = accent.lighter(190)
-        grad = QLinearGradient(0, T, 0, h)
-        theme, paper, tint, _ = bubble_palette(self._accent)
-        grad.setColorAt(0.00, QColor('#fffefa'))
-        grad.setColorAt(0.42, QColor(paper))
-        grad.setColorAt(1.00, QColor(tint))
-        p.setPen(QPen(QColor('#42352e'), 2.6 * UI_SCALE))
-        p.setBrush(QBrush(grad))
-        p.drawPath(path)
-
-        decorate_bubble(p, path, w, T, B, self._accent, UI_SCALE)
-        p.setPen(QPen(QColor('#42352e'), 2.6 * UI_SCALE))
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawPath(path)
+        draw_bubble(p, self.rect(), self._accent, self.tail_up, self.art_theme)
+        p.end()
 
 
 
@@ -292,7 +280,7 @@ class BubbleWindow(QWidget):
 
         cl = QVBoxLayout(self.card)
         self._card_layout = cl
-        cl.setContentsMargins(_ui_px(18), _ui_px(13), _ui_px(28), _ui_px(27))
+        cl.setContentsMargins(_ui_px(34), _ui_px(45), _ui_px(34), _ui_px(30))
         cl.setSpacing(_ui_px(7))
 
         # 头行：状态圆点 + 状态词 + 步数胶囊
@@ -327,7 +315,7 @@ class BubbleWindow(QWidget):
         self.label.setFont(_ui_font(11, QFont.Weight.DemiBold))
         self.label.setStyleSheet("color:#17304f;background:transparent;")
         self.label.setWordWrap(True)
-        self.label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.label.hide()
         cl.addWidget(self.label)
 
@@ -353,13 +341,43 @@ class BubbleWindow(QWidget):
 
     def _apply_size(self, content_h: int):
         w = self.CARD_W + self.M_L + self.M_R
-        h = content_h + self.M_T + self.M_B
+        left, top, right, bottom = INSETS[self.card.art_theme]
+        art = artwork(self.card.art_theme)
+        body_h = max(1, content_h - _ui_px(75))
+        card_h = max(int(body_h / (1-top-bottom)) + _ui_px(12),
+                     round(self.CARD_W * art.height() / art.width()))
+        h = card_h + self.M_T + self.M_B
         screen = QApplication.screenAt(self.pet.geometry().center()) or self.pet.screen()
         if screen:
             max_h = int(screen.availableGeometry().height() * 0.55)
             h = min(h, max_h)
         if (w, h) != (self.width(), self.height()):
             self.setFixedSize(w, h)
+        self._apply_art_margins()
+
+    def _apply_art_margins(self):
+        left, top, right, bottom = INSETS[self.card.art_theme or 'working']
+        if self.card.tail_up:
+            top, bottom = bottom, top
+        card_h = self.height()-self.M_T-self.M_B
+        self._card_layout.setContentsMargins(round(self.CARD_W*left), round(card_h*top),
+                                            round(self.CARD_W*right), round(card_h*bottom))
+
+    def _body_width(self):
+        left, _, right, _ = INSETS[self.card.art_theme or 'working']
+        return max(20, int(self.CARD_W * (1-left-right))-4)
+
+    def _fit_content(self, text, accent, structured=False):
+        self.card.art_theme = content_theme(text, accent)
+        fm = (self.snippet_label if structured else self.label).fontMetrics()
+        longest = max((fm.horizontalAdvance(line) for line in text.splitlines()), default=0)
+        screen = QApplication.screenAt(self.pet.geometry().center()) or self.pet.screen()
+        limit = min(_ui_px(430), screen.availableGeometry().width() - self.M_L - self.M_R - 12)
+        minimum = _ui_px(260 if structured else 155)
+        # Measure the full message, so the typewriter does not resize every letter.
+        left, _, right, _ = INSETS[self.card.art_theme]
+        self.CARD_W = min(limit, max(minimum, int((longest+4)/(1-left-right))))
+        self.card.update()
 
     def set_message(self, msg: str, height_hint: str = None, accent: str = "#1687ff"):
         """simple 模式：单段文本。宽度固定、高度完全自适应内容。
@@ -374,10 +392,11 @@ class BubbleWindow(QWidget):
         self._set_mode(False)
         self.card.set_accent(accent)
         src = height_hint if height_hint is not None else msg
-        body = self._label_height(self.label, src, self.CARD_W - _ui_px(46)) if msg else 18
+        self._fit_content(src, accent)
+        body = self._label_height(self.label, src, self._body_width()) if msg else 18
         self.label.setText(msg)
         # 21 = 卡片上下边距（10 + 11）
-        self._apply_size(body + _ui_px(40))
+        self._apply_size(body + _ui_px(75))
 
     def set_structured(self, status: str, color: str, step_text: str, shown: str, full: str):
         """structured 模式：状态行 + 摘录行。
@@ -392,6 +411,7 @@ class BubbleWindow(QWidget):
         self._snippet_full = full or ""
         self._set_mode(True)
         self.card.set_accent(color)
+        self._fit_content(status + ' ' + step_text + '\n' + (full or ''), color, True)
         self.dot.setStyleSheet(f"background:{color};border-radius:{_ui_px(4)}px;")
         self.status_label.setText(status)
         self.status_label.setStyleSheet(
@@ -420,20 +440,19 @@ class BubbleWindow(QWidget):
         # 头行高 + 间距(5) + 摘录高 + 卡片上下边距(21)
         head_h = max(_ui_px(26), self.status_label.fontMetrics().height() + _ui_px(6))
         body = self._label_height(self.snippet_label, self._snippet_full,
-                                  self.CARD_W - _ui_px(46) - _ui_px(12)) if self._snippet_full else 0
-        self._apply_size(head_h + (_ui_px(7) if body else 0) + body + _ui_px(40))
+                                  self._body_width() - _ui_px(12)) if self._snippet_full else 0
+        self._apply_size(head_h + (_ui_px(7) if body else 0) + body + _ui_px(75))
 
     def position_near_pet(self):
         """定位在桌宠上方，尾巴顶点对准桌宠中心"""
         pet_geo = self.pet.visual_geometry()
         gap = _ui_px(3)   # 气泡与桌宠的间距（紧凑贴合）
-        x = pet_geo.center().x() - self.width() // 2
+        x = pet_geo.center().x() - self.M_L - int(self.CARD_W * .94)
         y = pet_geo.top() - self.height() + self.M_B - gap
         # 确保不超出屏幕
         screen = (QApplication.screenAt(pet_geo.center()) or self.pet.screen()).availableGeometry()
         self.card.tail_up = y < screen.top() + 4
-        self._card_layout.setContentsMargins(_ui_px(18), _ui_px(26) if self.card.tail_up else _ui_px(13),
-                                             _ui_px(28), _ui_px(14) if self.card.tail_up else _ui_px(27))
+        self._apply_art_margins()
         if self.card.tail_up:
             y = pet_geo.bottom() - self.M_T + gap
         y = max(screen.top() + 4, min(y, screen.bottom() - self.height() - 4))
@@ -571,10 +590,16 @@ class TaskBubble(QWidget):
                         break
 
     def _resize_for_state(self):
+        fm = self.msg_label.fontMetrics()
+        text = self._message if self._expanded and self._message else self.task_name
+        measured = max((fm.horizontalAdvance(line) for line in text.splitlines()), default=0)
+        screen = self.screen().availableGeometry()
+        self.BUBBLE_W = min(_ui_px(420), screen.width() - self.M_L - self.M_R - 12,
+                            max(_ui_px(230), measured + _ui_px(90)))
         w = self.BUBBLE_W + self.M_L + self.M_R
         if self._expanded and self._message:
             fm = self.msg_label.fontMetrics()
-            msg_h = min(_ui_px(64), fm.boundingRect(QRect(0, 0, self.BUBBLE_W - _ui_px(44), 0), Qt.TextFlag.TextWordWrap, self._message).height() + _ui_px(4))
+            msg_h = min(int(screen.height()*.5), fm.boundingRect(QRect(0, 0, self.BUBBLE_W - _ui_px(56), 10000), Qt.TextFlag.TextWordWrap, self._message).height() + _ui_px(4))
             self.setFixedSize(w, _ui_px(24) + _ui_px(4) + msg_h + _ui_px(37) + self.M_T + self.M_B)
         elif self._expanded:
             self.msg_label.setText("(无详细信息)")
@@ -617,6 +642,7 @@ class TaskBubble(QWidget):
 
         c = STATE_UI_COLORS.get(status, STATE_UI_COLORS["running"])
         self.frame.set_accent(c)
+        self.frame.art_theme = content_theme(status_text + ' ' + message, c)
         self.dot.setStyleSheet(f"background:{c};border-radius:{_ui_px(4)}px;")
         self.frame.setStyleSheet(f"""
             QFrame#task-card {{
@@ -747,14 +773,13 @@ class PetWindow(QWidget):
         self._task_scan_timer.setInterval(3000)
 
         # 初始化精灵图
-        self.atlas = load_atlas()
         self._puppet = Puppet(SKILL_DIR / 'assets')
         self._scene_pose = dict(BASE)
         self._scene_epoch = time.monotonic()
         self._entry_pose = dict(BASE)
         self._gaze = (0., 0.)
         self._gaze_head = (0., 0.)
-        frame = crop_frame(self.atlas, 0, 0)
+        frame = self._puppet.render(sample_scene('idle', 0.))
         self._current_frame = frame
 
         self._mouse_pos = QCursor.pos()
@@ -992,7 +1017,7 @@ class PetWindow(QWidget):
             tool = info.get("tool", "")
             if tool:
                 snippet = TOOL_LABEL_PET.get(tool, tool)
-        if state in ("done", "failed"):
+        if state in ("done", "cancelled", "failed"):
             snippet = ""
         self._show_auto(prefix, snippet, state=state, steps=steps)
 
@@ -1055,7 +1080,9 @@ class PetWindow(QWidget):
         # 状态切换
         for s, label in [("idle", "待机"), ("running", "执行中"), ("review", "检查中"),
                          ("waiting", "等待中"), ("waving", "挥手"), ("jumping", "跳跃"),
-                         ("hero-celebrate", "英雄庆祝")]:
+                         ("hero-celebrate", "开心庆祝"), ("walking-left", "向左走"),
+                         ("walking-right", "向右走"), ("running-left", "向左跑"),
+                         ("running-right", "向右跑")]:
             act = menu.addAction(label)
             act.triggered.connect(lambda checked, st=s: self._manual_state(st))
 
@@ -1164,7 +1191,7 @@ class PetWindow(QWidget):
         if self._state == 'look':
             return
         elapsed = max(0., time.monotonic() - self._scene_epoch)
-        if self._one_shot and elapsed >= scene_duration(self._state):
+        if self._one_shot and elapsed >= playback_duration(self._state):
             self._set_state(self._next_state)
             return
         self._frame_index = int(elapsed * 30) % len(ANIMATIONS[self._state]['durations'])

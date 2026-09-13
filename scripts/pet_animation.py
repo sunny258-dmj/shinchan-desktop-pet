@@ -1,12 +1,7 @@
-"""Compatibility frame sampler for the V4 vector animation system.
-
-Legacy QA helpers used to load colour-keyed sprite sheets through this module.
-V4 keeps the public ``CLIPS``/``load_actions`` API but generates clean frames from
-the same continuous vector puppet used by the live desktop pet.
-"""
+"""Compatibility frame sampler backed by the live reference-art renderer."""
 from functools import lru_cache
-from pet_puppet import Puppet
-from pet_scene_motion import duration, sample
+from pet_reference_renderer import Puppet, playback_duration as duration
+from pet_scene_motion import sample
 
 CLIP_STATES = (
     'idle', 'running', 'thinking', 'waiting', 'review', 'jumping',
@@ -21,11 +16,7 @@ CLIPS = {
 
 @lru_cache(maxsize=2)
 def load_actions(directory):
-    """Return eight representative transparent V4 frames per clip.
-
-    ``directory`` is accepted for backwards compatibility; V4 rendering itself is
-    asset-free, so missing legacy PNG sprite sheets no longer affect animation.
-    """
+    """Return eight representative transparent frames per clip from the atlas."""
     puppet = Puppet(directory)
     frames = {}
     for row, state in enumerate(CLIP_STATES):

@@ -7,9 +7,10 @@ colour-key spill, matte fringe or cutout jitter.
 import math
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
+from pet_effects import draw_effects, draw_cup
 
 INK = QColor('#24201f')
-SKIN = QColor('#ffd2a0')
+SKIN = QColor('#ffdab5')
 SKIN_SHADE = QColor('#f2ad7c')
 SUIT = QColor('#177cc1')
 SUIT_DARK = QColor('#0d5f9f')
@@ -55,6 +56,11 @@ class Puppet:
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         p.scale(2.0, 2.0)
+        # Reference proportions: oversized cheeky head, compact body and short legs.
+        p.translate(0, -8)
+        p.translate(192, 260)
+        p.scale(1.05, 1.05)
+        p.translate(-192, -260)
 
         x, y = 192 + pose['x'], pose['y']
         angle = math.radians(pose['lean'])
@@ -106,7 +112,7 @@ class Puppet:
 
         for side, fx, fy in ((-1, pose['flx'], pose['fly']), (1, pose['frx'], pose['fry'])):
             hip = bodypoint(side * 24, 329)
-            ankle = QPointF(x + fx, min(0, y) + fy - 5)
+            ankle = QPointF(x + fx, min(0, y) + fy - 17)
             knee = QPointF((hip.x() + ankle.x()) * .5 + side * (4 + max(0, y) * .50),
                            (hip.y() + ankle.y()) * .5)
             limb(hip, knee, 15, SKIN)
@@ -156,8 +162,9 @@ class Puppet:
         p.setPen(QPen(INK, 2.0))
         p.setBrush(YELLOW)
         p.drawRoundedRect(QRectF(-39, 30, 78, 13), 5, 5)
-        p.setBrush(RED)
+        p.setBrush(YELLOW)
         p.drawRoundedRect(QRectF(-32, 41, 64, 14), 5, 5)
+        p.drawLine(QPointF(0, 43), QPointF(0, 55))
         star = QPainterPath()
         for i in range(10):
             a = -math.pi / 2 + i * math.pi / 5
@@ -205,13 +212,13 @@ class Puppet:
             p.drawLine(QPointF(-12, -28), QPointF(3, -44))
             p.restore()
 
-        head = bodypoint(pose['turn'] * 7, 174)
+        head = bodypoint(pose['turn'] * 7, 187)
         p.save()
         p.translate(head)
         p.rotate(pose['lean'] + pose['head'])
         turn = max(-1., min(1., pose['turn']))
         face_scale = 1.0 - .08 * abs(turn)
-        p.scale(face_scale, 1.0)
+        p.scale(face_scale * 1.16, 1.02)
 
         ear_x = 83 if turn >= 0 else -83
         ellipse(QRectF(ear_x - 14, -4, 29, 42), SKIN, 2.7)
@@ -219,39 +226,52 @@ class Puppet:
         p.drawArc(QRectF(ear_x - 8, 6, 15, 20), 70 * 16, 205 * 16)
 
         face = QPainterPath()
-        face.moveTo(-72, -62)
-        face.cubicTo(-97, -44, -99, 7, -85, 38)
-        face.cubicTo(-74, 66, -40, 78, -3, 76)
-        face.cubicTo(38, 82, 77, 63, 88, 30)
-        face.cubicTo(101, -6, 87, -49, 60, -65)
-        face.cubicTo(28, -82, -42, -82, -72, -62)
+        face.moveTo(-67, -49)
+        face.cubicTo(-62, -80, -24, -88, 3, -80)
+        face.cubicTo(37, -89, 65, -65, 68, -35)
+        face.cubicTo(80, -20, 106, -4, 104, 23)
+        face.cubicTo(106, 49, 66, 65, 28, 68)
+        face.cubicTo(-11, 73, -54, 66, -77, 52)
+        face.cubicTo(-105, 52, -107, 23, -85, 13)
+        face.cubicTo(-87, -8, -77, -34, -67, -49)
         outlined_path(face, SKIN, 3.5)
 
         hair = QPainterPath()
-        hair.moveTo(-75, -58)
-        hair.cubicTo(-50, -87, 34, -91, 70, -58)
-        hair.lineTo(55, -56)
-        hair.lineTo(46, -69)
-        hair.lineTo(32, -57)
-        hair.lineTo(18, -72)
-        hair.lineTo(3, -58)
-        hair.lineTo(-12, -72)
-        hair.lineTo(-28, -56)
-        hair.lineTo(-43, -70)
-        hair.lineTo(-56, -54)
+        hair.moveTo(-80, -9)
+        hair.cubicTo(-79, -64, -45, -89, -8, -85)
+        hair.cubicTo(27, -93, 62, -73, 68, -40)
+        hair.lineTo(53, -59)
+        hair.lineTo(45, -58)
+        hair.lineTo(36, -74)
+        hair.lineTo(24, -69)
+        hair.lineTo(12, -81)
+        hair.lineTo(1, -74)
+        hair.lineTo(-12, -79)
+        hair.lineTo(-25, -67)
+        hair.lineTo(-38, -69)
+        hair.lineTo(-48, -51)
+        hair.lineTo(-59, -46)
+        hair.lineTo(-65, -20)
         hair.closeSubpath()
         outlined_path(hair, HAIR, 2.6)
 
         brow_raise = -4 * pose['happy'] + 4 * pose['puzzled']
-        p.setPen(QPen(HAIR, 7.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-        p.drawLine(QPointF(-48 + turn * 8, -30 + brow_raise), QPointF(-12 + turn * 5, -34 - pose['puzzled'] * 5))
+        p.setPen(QPen(HAIR, 12.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        brow = QPainterPath()
+        brow.moveTo(-51 + turn * 8, -28 + brow_raise)
+        brow.cubicTo(-45, -50, -30, -52, -20 + turn * 5, -34 - pose['puzzled'] * 5)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawPath(brow)
         if abs(turn) < .72:
-            p.drawLine(QPointF(15 + turn * 5, -34 - pose['puzzled'] * 4), QPointF(51 + turn * 7, -29 + brow_raise))
+            brow = QPainterPath()
+            brow.moveTo(7 + turn * 5, -36 - pose['puzzled'] * 4)
+            brow.cubicTo(13, -58, 32, -57, 40 + turn * 7, -35 + brow_raise)
+            p.drawPath(brow)
 
         blink = max(0., min(1., pose['blink']))
-        eye_centres = [(-30 + turn * 13, 1)]
+        eye_centres = [(-33 + turn * 13, 0)]
         if abs(turn) < .72:
-            eye_centres.append((30 + turn * 11, 1))
+            eye_centres.append((25 + turn * 11, -8))
         for ex, ey in eye_centres:
             p.setPen(QPen(INK, 2.6))
             p.setBrush(WHITE)
@@ -260,7 +280,7 @@ class Puppet:
                 px = ex + pose['eye_x'] * 5 + turn * 2
                 py = ey + pose['eye_y'] * 4 + 4
                 p.setBrush(HAIR)
-                p.drawEllipse(QRectF(px - 9, py - 10 * (1 - blink), 18, max(3, 20 * (1 - blink))))
+                p.drawEllipse(QRectF(px - 14, py - 15 * (1 - blink), 28, max(3, 30 * (1 - blink))))
                 p.setPen(Qt.PenStyle.NoPen)
                 p.setBrush(WHITE)
                 p.drawEllipse(QRectF(px - 4, py - 6, 5, 5))
@@ -289,9 +309,12 @@ class Puppet:
         elif pose['puzzled'] > .45:
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawArc(QRectF(-13 + turn * 8, 43, 30, 17), 25 * 16, 130 * 16)
+        elif pose.get('surprise', 0) > .35:
+            p.setBrush(QColor('#a72c3a'))
+            p.drawEllipse(QRectF(40 + turn * 8, 27, 18, 25))
         else:
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawArc(QRectF(-16 + turn * 8, 38, 34, 20), 205 * 16, 130 * 16)
+            p.drawArc(QRectF(30 + turn * 8, 31, 19, 13), 205 * 16, 130 * 16)
         p.restore()
 
         for side, wrist, rotation in hands:
@@ -321,6 +344,8 @@ class Puppet:
                 for dx in (-7, -2, 3, 8):
                     p.drawLine(QPointF(dx, -6), QPointF(dx + side * 1.5, -13))
             p.restore()
+            if side == 1:
+                draw_cup(p, wrist, pose.get('cup', 0.))
             if side == 1 and pose['pencil'] > .01:
                 p.save()
                 p.setOpacity(min(1., pose['pencil']))
@@ -339,5 +364,6 @@ class Puppet:
                 p.drawLine(QPointF(sx - r, sy), QPointF(sx + r, sy))
                 p.drawLine(QPointF(sx, sy - r), QPointF(sx, sy + r))
 
+        draw_effects(p, pose, head)
         p.end()
         return frame

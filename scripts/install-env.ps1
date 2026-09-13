@@ -65,7 +65,7 @@ Write-Step "    使用解释器: $python"
 # ---------------------------------------------------------------
 # 2. 检查 / 安装 PySide6
 # ---------------------------------------------------------------
-Write-Step '2/4  检查 PySide6 依赖'
+Write-Step '2/5  检查 PySide6 依赖'
 $hasPyside = $false
 try {
     & $python -c "import PySide6, PySide6.QtWidgets" 2>$null | Out-Null
@@ -110,7 +110,7 @@ if (Test-Path -LiteralPath $pw) { $pythonw = $pw } else { $pythonw = $python }
 # ---------------------------------------------------------------
 # 3. 任务/进度文件目录（config 为空 → 自动推导）
 # ---------------------------------------------------------------
-Write-Step '3/4  解析任务/进度文件路径'
+Write-Step '3/5  解析任务/进度文件路径'
 $tasksDir = ''
 $progressFile = ''
 if (Test-Path -LiteralPath $ConfigPath) {
@@ -126,7 +126,9 @@ if (Test-Path -LiteralPath $ConfigPath) {
     } catch {}
 }
 if (-not $tasksDir) {
-    $desktopTemp = 'D:\Desktop\.temp'
+    # 桌面路径动态推导（跨机器安全：D:\Desktop 仅本机存在，不写死）
+    $desktop = [Environment]::GetFolderPath('Desktop')
+    $desktopTemp = Join-Path $desktop '.temp'
     if (Test-Path -LiteralPath $desktopTemp) { $tasksDir = Join-Path $desktopTemp 'pet-tasks' }
     else { $tasksDir = Join-Path $SkillDir '.pet-temp\pet-tasks' }
 }
@@ -156,13 +158,13 @@ Write-Step "配置已生成: $ConfigPath"
 # 注：技能内不再含 .bat（技能广场审核禁止 .bat 扩展名），自启直接调 .ps1
 # ---------------------------------------------------------------
 if ($autostart) {
-    Write-Step '5/4  写入登录自启'
+    Write-Step '4/5  写入登录自启'
     $ps1 = Join-Path $ScriptDir 'start-pet.ps1'
-    # pwsh 优先（效率高），没有才降级 powershell.exe
+    # pwsh 优先（更高效），找不到则降级 powershell.exe；路径可能含空格，必须加引号（否则 cmd 解析 .bat 时必失败）
     $psExe = 'powershell.exe'
     $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
     if ($pwshCmd) { $psExe = $pwshCmd.Source }
-    $startCmd = "$psExe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$ps1`""
+    $startCmd = "`"$psExe`" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$ps1`""
     # 通道 1：Startup 目录写 .bat（首选，用户最直观）
     $autostartOk = $false
     try {
@@ -205,7 +207,7 @@ if ($SetupProfile) {
 }
 
 if ($doProfile) {
-    Write-Step '6/5  初始化用户记忆系统'
+    Write-Step '5/5  初始化用户记忆系统'
     # 动态定位 TeleAgent 用户记忆目录（与桌宠事件层同一逻辑）
     $usersRoot = Join-Path $env:USERPROFILE '.local\share\TeleAgent\users'
     $memDir = $null

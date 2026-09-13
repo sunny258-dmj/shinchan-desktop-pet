@@ -85,6 +85,28 @@ class EventTests(unittest.TestCase):
         self.assertEqual(info['label'], '已完成')
         self.assertEqual(info['snippet'], '')
 
+    def test_manual_stop_status_is_not_a_confirmation(self):
+        tracker = events.SessionTracker()
+        tracker.on_event({'event':'PreToolUse','session_id':'s','tool_name':'write'})
+        for status in ('paused', 'needs_intervention'):
+            with self.subTest(status=status):
+                self.w._status_snapshot = {'s': 'running'}
+                self.w.status_path.write_text(json.dumps({'s': status}), encoding='utf-8')
+                projected = self.w._status_events()
+                self.assertEqual(projected[0]['event'], 'Interrupted')
+                tracker.on_event(projected[0])
+                state, info = tracker.resolve()
+                self.assertEqual((state, info['label']), ('cancelled', '已手动停止'))
+                tracker.sweep(time.time() + 9)
+                self.assertEqual(tracker.resolve()[0], 'idle')
+
+    def test_only_explicit_question_enters_waiting(self):
+        tracker = events.SessionTracker()
+        tracker.on_event({'event':'PreToolUse','session_id':'s','tool_name':'question'})
+        self.assertEqual(tracker.resolve()[0], 'waiting')
+        tracker.on_event({'event':'Interrupted','session_id':'s'})
+        self.assertEqual(tracker.resolve()[0], 'cancelled')
+
 
 class GuiTests(unittest.TestCase):
     @classmethod
@@ -180,9 +202,10 @@ class GuiTests(unittest.TestCase):
         self.assertTrue(all(not a.intersects(b) for i,a in enumerate(rects) for b in rects[i+1:]))
 
     def test_all_frames_have_clear_edges(self):
+        atlas = gui.load_atlas()  # legacy atlas compatibility, independent of live renderer
         for row in range(11):
             for col in range(8):
-                frame = gui.crop_frame(self.pet.atlas,row,col).toImage()
+                frame = gui.crop_frame(atlas,row,col).toImage()
                 self.assertEqual((frame.width(),frame.height()),(384,416))
                 self.assertTrue(all(frame.pixelColor(x,0).alpha()==0 and frame.pixelColor(x,415).alpha()==0 for x in range(384)))
                 self.assertTrue(all(frame.pixelColor(0,y).alpha()==0 and frame.pixelColor(383,y).alpha()==0 for y in range(416)))
@@ -219,6 +242,18 @@ class GuiTests(unittest.TestCase):
         self.pet._set_state('idle')
         self.pet._apply_auto_state()
         self.assertFalse(self.pet._done_timer.isActive())
+
+    def test_manual_stop_shows_short_stop_notice_without_confirmation(self):
+        self.pet._tracker.on_event({'event':'PreToolUse','session_id':'s','tool_name':'write'})
+        self.pet._tracker.on_event({'event':'Interrupted','session_id':'s'})
+        self.pet._apply_auto_state(force=True)
+        self.assertEqual((self.pet._auto_state, self.pet._state), ('cancelled', 'idle'))
+        self.assertEqual(self.pet._bubble_text, '已手动停止')
+        self.assertFalse(self.pet._confirmation_active())
+        self.pet._tracker.sweep(time.time() + 9)
+        self.pet._apply_auto_state(force=True)
+        self.assertEqual(self.pet._auto_state, 'idle')
+        self.assertFalse(self.pet._bubble.isVisible())
 
     def test_task_values_are_normalized(self):
         self.command(tasks=[{'name':'test','total':'3','current':'7','message':None}])
