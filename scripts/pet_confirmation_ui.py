@@ -17,7 +17,8 @@ _UI = ui_scale()
 
 def _ui_font(size, weight=QFont.Weight.Normal):
     f = QFont("Microsoft YaHei UI")
-    f.setPointSizeF(max(6.0, round(size * _UI, 2)))
+    # 确认是用户必须阅读和选择的内容，不能跟随桌宠缩小到难以辨认。
+    f.setPointSizeF(max(9.0, round(size * _UI, 2)))
     f.setWeight(weight)
     return f
 
@@ -201,8 +202,9 @@ class ReviewDialog(QDialog):
         self.group.buttonToggled.connect(self._selection_changed)
 
         screen = controller.pet.screen().availableGeometry()
-        self.resize(min(int(500 * _UI), screen.width() - 32),
-                    min(int(480 * _UI), screen.height() - 64))
+        # 保持确认窗口独立可读：桌宠可缩小，选择内容不应跟着压成 400px。
+        self.resize(min(max(_ui_px(460), 460), screen.width() - 32),
+                    min(max(_ui_px(460), 460), screen.height() - 64))
         self.move(max(screen.left(), min(controller.pet.x() - self.width(), screen.right() - self.width())),
                   max(screen.top(), min(controller.pet.y() - self.height(), screen.bottom() - self.height())))
 
@@ -271,6 +273,7 @@ class ConfirmationController(QObject):
             f"border-radius:{_ui_px(12)}px;padding:{_ui_px(8)}px;font-weight:600;}}"
             f"QPushButton:hover{{background:#dff2ff;border-color:#8fc9ed;}}")
         for button in (self.recommended, self.review):
+            button.setFont(_ui_font(10, QFont.Weight.DemiBold))
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.setMinimumHeight(_ui_px(56))
             row.addWidget(button, 1)
